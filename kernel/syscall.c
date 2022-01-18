@@ -33,6 +33,8 @@ static sysret_t sys_dup(void* arg);
 static sysret_t sys_pipe(void* arg);
 static sysret_t sys_info(void* arg);
 static sysret_t sys_halt(void* arg);
+static int alloc_fd(struct file *f);
+static bool validate_fd(int fd);
 
 extern size_t user_pgfault;
 struct sys_info {
@@ -202,14 +204,48 @@ sys_sleep(void* arg)
 static sysret_t
 sys_open(void *arg)
 {
-    panic("syscall open not implemented");
+    sysarg_t pathname, flags, mode;
+    kassert(fetch_arg(arg, 1, &pathname));
+    kassert(fetch_arg(arg, 2, &flags));
+    kassert(fetch_arg(arg, 3, &mode));
+
+    if (!validate_str((char*)pathname)) {
+        return ERR_FAULT;
+    }
+
+    struct file *fileToOpen = NULL;
+    err_t open_err = fs_open_file((char*)pathname, flags, mode, &fileToOpen);
+    int fd = alloc_fd(fileToOpen);
+
+    if(open_err == ERR_OK) {
+        return fd;
+    }
+
+    return open_err;
 }
 
 // int close(int fd);
 static sysret_t
 sys_close(void *arg)
 {
-    panic("syscall close not implemented");
+    sysarg_t fd;
+    kassert(fetch_arg(arg, 1, &fd));
+
+    if (!validate_fd(fd)){
+        return ERR_INVAL;
+    }
+
+    struct proc *p = proc_current();
+
+    if(p->fileTable[fd] == NULL){
+        return ERR_INVAL;
+    }
+
+    fs_close_file(p->fileTable[fd]);
+
+    p->fileTable[fd] = NULL;
+
+    return ERR_OK;
 }
 
 // int read(int fd, void *buf, size_t count);
@@ -226,10 +262,24 @@ sys_read(void* arg)
         return ERR_FAULT;
     }
 
-    if (fd == 0) {
-        return console_read((void*)buf, (size_t)count);
+    if(!validate_fd(fd)){
+        return ERR_INVAL;
     }
-    return ERR_INVAL;
+
+    struct proc *p = proc_current();
+
+    if(p->fileTable[fd] == NULL){
+        return ERR_INVAL;
+    }
+    
+    return fs_read_file(p->fileTable[fd], (void*)buf, (size_t)count, &(p->fileTable[fd]->f_pos));
+    //return bytes_read;
+    // if(bytes_read < 0){
+    //     return ERR_INVAL;
+    // } else {
+    //     return bytes_read;
+    // }
+    // return ERR_INVAL;
 }
 
 // int write(int fd, const void *buf, size_t count)
@@ -246,11 +296,22 @@ sys_write(void* arg)
         return ERR_FAULT;
     }
 
+    struct proc *p = proc_current();
+    if(!validate_fd(fd)){
+        return ERR_INVAL;
+    }
+
+    if(p->fileTable[fd] == NULL){
+        return ERR_INVAL;
+    }
+
     if (fd == 1) {
         // write some stuff for now assuming one string
         return console_write((void*)buf, (size_t) count);
+    } else {
+        return fs_write_file(p->fileTable[fd], (void*)buf, (size_t) count, (offset_t*)(p->fileTable[fd]->f_pos));
     }
-    return ERR_INVAL;
+    return ERR_END;
 }
 
 // int link(const char *oldpath, const char *newpath)
@@ -327,10 +388,38 @@ sys_chdir(void *arg)
 }
 
 // int readdir(int fd, struct dirent *dirent);
+/*  
+ * fd: file descriptor of a directory
+ * dirent: struct direct pointer
+ * 
+ * Populate the struct dirent pointer with the next entry in a directory. 
+ * The current position of the file descriptor is updated to the next entry.
+ * Only fds corresponding to directories are valid for readdir. 
+*/
+
 static sysret_t
 sys_readdir(void *arg)
 {
-    panic("syscall readir not implemented");
+    sysarg_t fd, dirent;
+
+    kassert(fetch_arg(arg, 1, &fd));
+    kassert(fetch_arg(arg, 2, &dirent));
+
+    if(!validate_fd(fd)){
+        return ERR_INVAL;
+    }
+
+    if(!validate_ptr((void*)dirent, sizeof(struct dirent))){
+        return ERR_FAULT;
+    }
+
+    struct proc *p = proc_current();
+
+    if(p->fileTable[fd] == NULL){
+        return ERR_INVAL;
+    }
+
+    return fs_readdir(p->fileTable[fd], (struct dirent *)dirent);
 }
 
 // int rmdir(const char *pathname);
@@ -352,7 +441,33 @@ sys_rmdir(void *arg)
 static sysret_t
 sys_fstat(void *arg)
 {
-    panic("syscall fstat not implemented");
+    sysarg_t fd, stat;
+
+    kassert(fetch_arg(arg, 1, &fd));
+    kassert(fetch_arg(arg, 2, &stat));
+    
+    if(!validate_fd(fd)){
+        return ERR_INVAL;
+    }
+
+    if(fd == 0 || fd == 1){
+        return ERR_INVAL;
+    }
+
+    if(!validate_ptr(((struct stat *)stat), sizeof(struct stat))){
+        return ERR_FAULT;
+    }
+
+    struct proc *p = proc_current();
+    if(p->fileTable[fd] == NULL){
+        return ERR_INVAL;
+    }
+    
+    ((struct stat *)stat)->ftype = p->fileTable[fd]->f_inode->i_ftype;
+    ((struct stat *)stat)->inode_num = p->fileTable[fd]->f_inode->i_inum;
+    ((struct stat *)stat)->size = p->fileTable[fd]->f_inode->i_size;
+
+    return ERR_OK;
 }
 
 // void *sbrk(size_t increment);
@@ -374,7 +489,32 @@ sys_meminfo(void *arg)
 static sysret_t
 sys_dup(void *arg)
 {
-    panic("syscall dup not implemented");
+    sysarg_t fd;
+
+    kassert(fetch_arg(arg, 1, &fd));
+
+    if(!validate_fd(fd)) {
+        return ERR_INVAL;
+    }
+
+    struct proc *p = proc_current();
+
+    if(p->fileTable[fd] == NULL){
+        return ERR_INVAL;
+    }
+
+    int len = sizeof(p->fileTable)/sizeof(p->fileTable[0]);
+
+    //struct file dup_file = file_table[fd];
+
+    for(int i = 0; i < len; i++){
+        if(p->fileTable[i] == NULL){
+            p->fileTable[i] = p->fileTable[fd];
+            fs_reopen_file(p->fileTable[fd]);
+            return i;
+        }
+    }
+    return ERR_NOMEM;
 }
 
 // int pipe(int* fds);
@@ -418,5 +558,28 @@ syscall(int num, void *arg)
     } else {
         panic("Unknown system call");
     }
+}
+
+// Will get a pointer to file, look through process’s open file table to find an available fd, 
+// and store the pointer there. Returns the chosen fd
+static int alloc_fd(struct file *f) {
+    struct proc *process = proc_current();
+    int len = sizeof(process->fileTable)/sizeof(process->fileTable[0]);
+
+    for(int i = 0; i < len; i++){
+        if(process->fileTable[i] == NULL){
+            process->fileTable[i] = f;
+            return i;
+        }
+    }
+
+    // return an error value
+    return ERR_NOMEM;
+}
+
+// Will get the file descriptor, making sure it’s a valid file descriptor 
+// (in the open file table for the process)
+static bool validate_fd(int fd) {
+    return !(fd >= PROC_MAX_FILE || fd < 0);
 }
 

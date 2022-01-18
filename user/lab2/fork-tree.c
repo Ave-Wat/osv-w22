@@ -16,7 +16,7 @@ childpidtesthelper(int depth)
 
     for (i = 0; i < 3; i++) {
         if ((pids[i] = fork()) < 0) {
-            error("fork-tree: fork() failed in process %d, return value was %d", getpid(), pids[i]);
+            error("fork() failed, return value was %d", pids[i]);
         }
         if (pids[i] == 0) {
             childpidtesthelper(depth - 1);
@@ -27,13 +27,13 @@ childpidtesthelper(int depth)
     // each parent waits for the 3 direct children spawned
     for (i = 0; i < 3; i++) {
         if ((ret = wait(pids[i], NULL)) != pids[i]) {
-            error("fork-tree: process %d failed to wait for children, return value was %d", getpid(), ret);
+            error("failed to wait for children, return value was %d", ret);
         }
     }
 
     // Should have no more children
     if ((ret = wait(-1, NULL)) != ERR_CHILD) {
-        error("fork-tree: process %d should have no more children to wait on, but wait returned %d", getpid(), ret);
+        error("there should be no more children, return value was %d", ret);
     }
 }
 

@@ -104,6 +104,15 @@ proc_init(char* name)
         proc_free(p);
         return NULL;
     }
+
+    // changes made below
+    p->fileTable[0] = &stdin;
+    p->fileTable[1] = &stdout;
+    
+    for(int i = 2; i < PROC_MAX_FILE; i++){
+        p->fileTable[i] = NULL;
+    }
+
     return p;
 }
 

@@ -28,7 +28,8 @@ void thread_sys_init(void)
     kassert(thread_create("idle thread", NULL, DEFAULT_PRI) != NULL);
 }
 
-/* Create a new thread, attach it to process p */
+/* Create a new thread, starts executing at func with aux as its parameter.
+   For fork vs exec we can pass in different func when we create the process.  */
 struct thread*
 thread_create(const char *name, struct proc *p, int priority)
 {
