@@ -175,37 +175,43 @@ proc_fork()
     struct thread *t;
 
     err_t err;
-    struct proc *proc;
-    struct thread *t;
     vaddr_t entry_point;
     vaddr_t stackptr;
 
-    if ((proc = proc_init(name)) == NULL) {
+    if ((child = proc_init(parent->name)) == NULL) {
         return ERR_NOMEM;
     }
 
-    if ((t = thread_create(proc->name, proc, DEFAULT_PRI)) == NULL) {
+    if ((t = thread_create(child->name, child, DEFAULT_PRI)) == NULL) {
         err = ERR_NOMEM;
         goto error;
     }
 
     // add to ptable
     spinlock_acquire(&ptable_lock);
-    list_append(&ptable, &proc->proc_node);
+    list_append(&ptable, &child->proc_node);
     spinlock_release(&ptable_lock);
 
     tf_proc(t->tf, t->proc, entry_point, stackptr);
-    thread_start_context(t, NULL, NULL);
+    *t->tf = *thread_current()->tf;
 
+    tf_set_return(t, 0);
 
-    struct addrspace child_as;
-    as_copy_as(&(parent->as), &child_as);
-    child->as = child_as;
+    as_copy_as(&(parent->as), &child->as);
 
-    return NULL;
+    for (int i = 0; i < length(parent->fileTable); i ++) {
+        if(parent->fileTable != NULL){
+            child->fileTable[i] = parent->fileTable[i];
+            //if(file open in parent){
+                fs_reopen_file(child->fileTable[i]);
+            //}
+        }
+    }
+
+    return child->pid;
 error:
-    as_destroy(&proc->as);
-    proc_free(proc);
+    as_destroy(&child->as);
+    proc_free(child);
     return err;
 }
 
