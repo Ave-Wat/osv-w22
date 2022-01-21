@@ -105,7 +105,9 @@ proc_init(char* name)
         return NULL;
     }
 
-    // changes made below
+    p->exit_status = STATUS_ALIVE;
+
+    // initializes fileTable
     p->fileTable[0] = &stdin;
     p->fileTable[1] = &stdout;
     
@@ -168,6 +170,20 @@ struct proc*
 proc_fork()
 {
     kassert(proc_current());  // caller of fork must be a process
+    struct proc *parent = proc_current();
+    struct proc *child;
+    struct thread *t;
+
+    child->cwd = parent->cwd;
+    child->threads = parent->threads;
+    child->proc_node = parent->proc_node;
+    child->fileTable = parent->fileTable;
+    *t->tf = *thread_current()->tf; // how do we set t to equal the child's trapframe??
+
+    struct addrspace child_as;
+    addrspace(child_as);
+    child->as = child_as;
+
     
     /* your code here */
     return NULL;
