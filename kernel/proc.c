@@ -174,19 +174,39 @@ proc_fork()
     struct proc *child;
     struct thread *t;
 
-    child->cwd = parent->cwd;
-    child->threads = parent->threads;
-    child->proc_node = parent->proc_node;
-    child->fileTable = parent->fileTable;
-    *t->tf = *thread_current()->tf; // how do we set t to equal the child's trapframe??
+    err_t err;
+    struct proc *proc;
+    struct thread *t;
+    vaddr_t entry_point;
+    vaddr_t stackptr;
+
+    if ((proc = proc_init(name)) == NULL) {
+        return ERR_NOMEM;
+    }
+
+    if ((t = thread_create(proc->name, proc, DEFAULT_PRI)) == NULL) {
+        err = ERR_NOMEM;
+        goto error;
+    }
+
+    // add to ptable
+    spinlock_acquire(&ptable_lock);
+    list_append(&ptable, &proc->proc_node);
+    spinlock_release(&ptable_lock);
+
+    tf_proc(t->tf, t->proc, entry_point, stackptr);
+    thread_start_context(t, NULL, NULL);
+
 
     struct addrspace child_as;
-    addrspace(child_as);
+    as_copy_as(&(parent->as), &child_as);
     child->as = child_as;
 
-    
-    /* your code here */
     return NULL;
+error:
+    as_destroy(&proc->as);
+    proc_free(proc);
+    return err;
 }
 
 struct proc*
