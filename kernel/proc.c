@@ -182,6 +182,16 @@ proc_fork()
         return ERR_NOMEM;
     }
 
+    // load binary of the process
+    if ((err = proc_load(proc, name, &entry_point)) != ERR_OK) {
+        goto error;
+    }
+
+    // set up stack and allocate its memregion 
+    if ((err = stack_setup(proc, argv, &stackptr)) != ERR_OK) {
+        goto error;
+    }
+
     if ((t = thread_create(child->name, child, DEFAULT_PRI)) == NULL) {
         err = ERR_NOMEM;
         goto error;
