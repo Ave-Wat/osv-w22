@@ -27,6 +27,28 @@ static err_t stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr);
 /* tranlsates a kernel vaddr to a user stack address, assumes stack is a single page */
 #define USTACK_ADDR(addr) (pg_ofs(addr) + USTACK_UPPERBOUND - pg_size);
 
+// get a process by its PID. Used in wait()
+static struct proc* get_proc_by_pid(int pid){
+    for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
+        struct proc *p = list_entry(n, struct proc, proc_node);
+        if (p->pid == pid){
+            return p;
+        }
+    }
+    return NULL;
+}
+
+// finds an exited child of the process that is passed in
+static struct proc* find_exited_child(struct proc* parent){
+    for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
+        struct proc *p = list_entry(n, struct proc, proc_node);
+        if (p->parent->pid == parent->pid && p->exit_status == 1){
+            return p;
+        }
+    }
+    return NULL;
+}
+
 static struct proc*
 proc_alloc()
 {
@@ -105,12 +127,12 @@ proc_init(char* name)
         return NULL;
     }
 
+    // set default exit status
     p->exit_status = STATUS_ALIVE;
 
-    // initializes fileTable
+    // initialize fileTable
     p->fileTable[0] = &stdin;
     p->fileTable[1] = &stdout;
-    
     for(int i = 2; i < PROC_MAX_FILE; i++){
         p->fileTable[i] = NULL;
     }
@@ -182,6 +204,18 @@ proc_fork()
         return ERR_NOMEM;
     }
 
+    // copy parent's memory to child
+    as_copy_as(&(parent->as), &child->as);
+
+    // duplicate files from the parent process and reopen files that were open
+    for (int i = 0; i < length(parent->fileTable); i ++) {
+        if(parent->fileTable[i] != NULL){
+            child->fileTable[i] = parent->fileTable[i];
+            fs_reopen_file(child->fileTable[i]); 
+        }
+    }
+  
+    // create new thread to run the process
     if ((t = thread_create(child->name, child, DEFAULT_PRI)) == NULL) {
         err = ERR_NOMEM;
         goto error;
@@ -192,22 +226,15 @@ proc_fork()
     list_append(&ptable, &child->proc_node);
     spinlock_release(&ptable_lock);
 
+    // set up trapframe for a new process
     tf_proc(t->tf, t->proc, entry_point, stackptr);
     *t->tf = *thread_current()->tf;
 
+    // set return value in child to 0
     tf_set_return(t, 0);
 
-    as_copy_as(&(parent->as), &child->as);
-
-    for (int i = 0; i < length(parent->fileTable); i ++) {
-        if(parent->fileTable != NULL){
-            child->fileTable[i] = parent->fileTable[i];
-            //if(file open in parent){
-                fs_reopen_file(child->fileTable[i]);
-            //}
-        }
-    }
-
+    // set child's parent pointer
+    child->parent = parent;
     return child->pid;
 error:
     as_destroy(&child->as);
@@ -253,7 +280,7 @@ void
 proc_exit(int status)
 {
     struct thread *t = thread_current();
-    struct proc *p = proc_current();
+    struct proc *cur_process = proc_current();
 
     // detach current thread, switch to kernel page table
     // free current address space if proc has no more threads
@@ -268,7 +295,28 @@ proc_exit(int status)
  
     /* your code here */
 
+    // close all open files for this process
+    for (int i = 0; i < length(p->fileTable); i ++) {
+        if(p->fileTable[i] != NULL){
+            fs_close_file(p->fileTable[i]);
+        }
+    }
+
+    // check process table to see which child processes have not finished and hand them off to init. 
+    for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
+        struct proc *p = list_entry(n, struct proc, proc_node);
+        if (p->parent->pid == cur_process->pid && p->exit_status == STATUS_ALIVE){
+            p->parent = init_proc;
+        }
+    }
+
+    // set this process' exit status to 1
+    p->exit_status = 1;
+
+    // cleanup other stuff
     thread_exit(status);
+    thread_cleanup(t);
+    proc_exit(status);
 }
 
 /* helper function for loading process's binary into its address space */ 

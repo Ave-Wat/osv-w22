@@ -22,9 +22,7 @@ struct proc {
     Node proc_node;                     // used by ptable to keep track each process
     struct file *fileTable[PROC_MAX_FILE];          // file table used to track files associated with each process
     int exit_status;                    // 0 or 1 depending on whether the process exited successfully
-    List child_table;                   // used to store the pid's of all child processes
-    int state;                          // STATUS_ALIVE, STATUS_ZOMBIE
-    pid_t parent;
+    struct proc *parent;
 };
 
 struct proc *init_proc;
