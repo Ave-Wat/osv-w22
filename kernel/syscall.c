@@ -168,9 +168,7 @@ sys_spawn(void *arg)
 static sysret_t
 sys_wait(void* arg)
 {
-    /* remove when writing your own solution */
-    for (;;) {}
-    panic("unreacchable");
+    panic("nott impleemnted yet");
 }
 
 // void exit(int status);

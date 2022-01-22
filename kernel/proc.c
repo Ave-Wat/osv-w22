@@ -164,7 +164,6 @@ proc_spawn(char* name, char** argv, struct proc **p)
         goto error;
     }
 
-
     // set up stack and allocate its memregion 
     if ((err = stack_setup(proc, argv, &stackptr)) != ERR_OK) {
         goto error;
@@ -202,13 +201,11 @@ proc_fork()
     struct proc *parent = proc_current();
     struct proc *child;
     struct thread *t;
-
-    err_t err;
-    vaddr_t entry_point;
-    vaddr_t stackptr;
+    //vaddr_t entry_point;
+    //vaddr_t stackptr;
 
     if ((child = proc_init(parent->name)) == NULL) {
-        err = ERR_NOMEM;
+        return NULL;
     }
 
     // copy parent's memory to child
@@ -225,7 +222,6 @@ proc_fork()
   
     // create new thread to run the process
     if ((t = thread_create(child->name, child, DEFAULT_PRI)) == NULL) {
-        err = ERR_NOMEM;
         goto error;
     }
 
@@ -235,7 +231,7 @@ proc_fork()
     spinlock_release(&ptable_lock);
 
     // set up trapframe for a new process
-    tf_proc(t->tf, t->proc, entry_point, stackptr);
+    //tf_proc(t->tf, t->proc, entry_point, stackptr);
     *t->tf = *thread_current()->tf;
 
     // set return value in child to 0
@@ -243,11 +239,11 @@ proc_fork()
 
     // set child's parent pointer
     child->parent = parent;
-    return child->pid;
+    return child;
 error:
     as_destroy(&child->as);
     proc_free(child);
-    return err;
+    return NULL;
 }
 
 struct proc*
@@ -280,18 +276,14 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
-    if(!validate_ptr(status)){
-        return ERR_FAULT;
-    }
-
     struct proc *p = proc_current();
     struct proc *child;
 
     // waiting for any child to exit
     if (pid == -1){ 
         spinlock_acquire(&ptable_lock);
-        while(!find_exited_child(p)){
-            condvar_wait(&child->wait_cv, &ptable_lock);
+        while((child = find_exited_child(p)) == NULL){
+            condvar_wait(child->wait_cv, &ptable_lock);
         }
         spinlock_release(&ptable_lock);
 
@@ -307,7 +299,7 @@ proc_wait(pid_t pid, int* status)
         }
         spinlock_acquire(&ptable_lock);
         while(child->exit_status == STATUS_ALIVE){
-            condvar_wait(&child->wait_cv, &ptable_lock);
+            condvar_wait(child->wait_cv, &ptable_lock);
         }
         spinlock_release(&ptable_lock);
     }
@@ -334,7 +326,8 @@ proc_exit(int status)
  
     /* your code here */
     // close all open files for this process
-    for (int i = 0; i < length(p->fileTable); i ++) {
+    int length = sizeof(p->fileTable) / sizeof(p->fileTable[0]);
+    for (int i = 0; i < length; i ++) {
         if(p->fileTable[i] != NULL){
             fs_close_file(p->fileTable[i]);
         }
