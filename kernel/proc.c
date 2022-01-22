@@ -27,7 +27,7 @@ static err_t stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr);
 /* tranlsates a kernel vaddr to a user stack address, assumes stack is a single page */
 #define USTACK_ADDR(addr) (pg_ofs(addr) + USTACK_UPPERBOUND - pg_size);
 
-// get a process by its PID. Used in wait()
+// get a process by its PID.
 static struct proc* get_proc_by_pid(int pid){
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
@@ -129,6 +129,9 @@ proc_init(char* name)
 
     // set default exit status
     p->exit_status = STATUS_ALIVE;
+    
+    // set condition variable to 0
+    p->wait_cv = 0;
 
     // initialize fileTable
     p->fileTable[0] = &stdin;
@@ -273,6 +276,22 @@ int
 proc_wait(pid_t pid, int* status)
 {
     /* your code here */
+
+    struct proc *current = proc_current();
+
+    // wait for any child
+    if (pid == -1){
+        //
+    }
+
+    // wait for a specific child
+    struct proc *child = get_proc_by_pid(pid);
+    if (child->parent->pid != current->pid){
+        return ERR_CHILD;
+    }
+
+    
+
     return pid;
 }
 
@@ -280,7 +299,7 @@ void
 proc_exit(int status)
 {
     struct thread *t = thread_current();
-    struct proc *cur_process = proc_current();
+    struct proc *p = proc_current();
 
     // detach current thread, switch to kernel page table
     // free current address space if proc has no more threads
@@ -294,7 +313,6 @@ proc_exit(int status)
     fs_release_inode(p->cwd);
  
     /* your code here */
-
     // close all open files for this process
     for (int i = 0; i < length(p->fileTable); i ++) {
         if(p->fileTable[i] != NULL){
@@ -304,19 +322,23 @@ proc_exit(int status)
 
     // check process table to see which child processes have not finished and hand them off to init. 
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
-        struct proc *p = list_entry(n, struct proc, proc_node);
-        if (p->parent->pid == cur_process->pid && p->exit_status == STATUS_ALIVE){
-            p->parent = init_proc;
+        struct proc *cur_process = list_entry(n, struct proc, proc_node);
+        if (cur_process->parent->pid == p->pid && cur_process->exit_status == STATUS_ALIVE){
+            cur_process->parent = init_proc;
         }
     }
 
     // set this process' exit status to 1
+    // figure out when exit status should be 0
     p->exit_status = 1;
+
+    // change condition variable for the process
+    condvar_signal(p->wait_cv);
 
     // cleanup other stuff
     thread_exit(status);
     thread_cleanup(t);
-    proc_exit(status);
+    proc_free(p);
 }
 
 /* helper function for loading process's binary into its address space */ 
