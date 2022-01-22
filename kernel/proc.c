@@ -29,23 +29,27 @@ static err_t stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr);
 
 // get a process by its PID.
 static struct proc* get_proc_by_pid(int pid){
+    spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         if (p->pid == pid){
             return p;
         }
     }
+    spinlock_release(&ptable_lock);
     return NULL;
 }
 
 // finds an exited child of the process that is passed in
 static struct proc* find_exited_child(struct proc* parent){
+    spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         if (p->parent->pid == parent->pid && p->exit_status == 1){
             return p;
         }
     }
+    spinlock_release(&ptable_lock);
     return NULL;
 }
 
@@ -130,8 +134,8 @@ proc_init(char* name)
     // set default exit status
     p->exit_status = STATUS_ALIVE;
     
-    // set condition variable to 0
-    p->wait_cv = 0;
+    // initialize condvar
+    condvar_init(p->wait_cv);
 
     // initialize fileTable
     p->fileTable[0] = &stdin;
@@ -139,7 +143,7 @@ proc_init(char* name)
     for(int i = 2; i < PROC_MAX_FILE; i++){
         p->fileTable[i] = NULL;
     }
-
+    
     return p;
 }
 
@@ -234,7 +238,7 @@ proc_fork()
     *t->tf = *thread_current()->tf;
 
     // set return value in child to 0
-    tf_set_return(t, 0);
+    tf_set_return(t->tf, 0);
 
     // set child's parent pointer
     child->parent = parent;
@@ -275,22 +279,37 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
-    /* your code here */
-
-    struct proc *current = proc_current();
-
-    // wait for any child
-    if (pid == -1){
-        //
+    if(!validate_ptr(status)){
+        return ERR_FAULT;
     }
 
-    // wait for a specific child
-    struct proc *child = get_proc_by_pid(pid);
-    if (child->parent->pid != current->pid){
-        return ERR_CHILD;
-    }
+    struct proc *p = proc_current();
+    struct proc *child;
 
-    
+    // waiting for any child to exit
+    if (pid == -1){ 
+        spinlock_acquire(&ptable_lock);
+        while(!find_exited_child(p)){
+            condvar_wait(&child->wait_cv, &ptable_lock);
+        }
+        spinlock_release(&ptable_lock);
+
+    } 
+    // waiting on specific child
+    else { 
+        child = get_proc_by_pid(pid);
+        if (child == NULL){
+            return ERR_CHILD;
+        }
+        if (child->parent->pid != p->pid){
+            return ERR_CHILD;
+        }
+        spinlock_acquire(&ptable_lock);
+        while(child->exit_status == STATUS_ALIVE){
+            condvar_wait(&child->wait_cv, &ptable_lock);
+        }
+        spinlock_release(&ptable_lock);
+    }
 
     return pid;
 }

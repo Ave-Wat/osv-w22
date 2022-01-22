@@ -23,7 +23,7 @@ struct proc {
     struct file *fileTable[PROC_MAX_FILE];   // file table used to track files associated with each process
     int exit_status;                    // default is STATUS_ALIVE, 
     struct proc *parent;
-    int wait_cv;                        // 0 means not waiting, 1 otherwise
+    struct condvar *wait_cv;                        // 0 means not waiting, 1 otherwise
 };
 
 struct proc *init_proc;
