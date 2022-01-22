@@ -208,14 +208,15 @@ proc_fork()
     vaddr_t stackptr;
 
     if ((child = proc_init(parent->name)) == NULL) {
-        return ERR_NOMEM;
+        err = ERR_NOMEM;
     }
 
     // copy parent's memory to child
     as_copy_as(&(parent->as), &child->as);
 
     // duplicate files from the parent process and reopen files that were open
-    for (int i = 0; i < length(parent->fileTable); i ++) {
+    int length = sizeof(parent->fileTable) / sizeof(parent->fileTable[0]);
+    for (int i = 0; i < length; i ++) {
         if(parent->fileTable[i] != NULL){
             child->fileTable[i] = parent->fileTable[i];
             fs_reopen_file(child->fileTable[i]); 
