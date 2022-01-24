@@ -285,6 +285,7 @@ proc_wait(pid_t pid, int* status)
         while((child = find_exited_child(p)) == NULL){
             condvar_wait(child->wait_cv, &ptable_lock);
         }
+        
         spinlock_release(&ptable_lock);
 
     } 

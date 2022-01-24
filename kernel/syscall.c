@@ -168,7 +168,20 @@ sys_spawn(void *arg)
 static sysret_t
 sys_wait(void* arg)
 {
-    panic("nott impleemnted yet");
+    sysarg_t pid, wstatus;
+
+    kassert(fetch_arg(arg, 1, (pid_t)pid));
+    kassert(fetch_arg(arg, 3, (int *)wstatus));
+
+    //if(pid->parent does not have pid in its child_table, or has already waited on the child, raise error ERR_CHILD)
+    //validate args here
+    if(!validate_ptr(wstatus, sizeof(int *))){
+        return ERR_FAULT;
+    }
+
+    int child_pid = proc_wait(pid, wstatus);
+
+    return child_pid;
 }
 
 // void exit(int status);
