@@ -56,6 +56,7 @@ static struct proc* find_exited_child(struct proc* parent){
 static struct proc*
 proc_alloc()
 {
+    kprintf("alloc");
     struct proc* p = (struct proc*) kmem_cache_alloc(proc_allocator);
     if (p != NULL) {
         spinlock_acquire(&pid_lock);
@@ -69,6 +70,7 @@ proc_alloc()
 static void
 ptable_dump(void)
 {
+    kprintf("dump");
     kprintf("ptable dump:\n");
     spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
@@ -82,12 +84,14 @@ ptable_dump(void)
 void
 proc_free(struct proc* p)
 {
+    kprintf("free");
     kmem_cache_free(proc_allocator, p);
 }
 
 void
 proc_sys_init(void)
 {
+    kprintf("sys init");
     list_init(&ptable);
     spinlock_init(&ptable_lock);
     spinlock_init(&pid_lock);
@@ -101,6 +105,7 @@ proc_sys_init(void)
 static struct proc*
 proc_init(char* name)
 {
+    kprintf("init \n");
     struct super_block *sb;
     inum_t inum;
     err_t err;
@@ -109,7 +114,6 @@ proc_init(char* name)
     if (p == NULL) {
         return NULL;
     }
-
     if (as_init(&p->as) != ERR_OK) {
         proc_free(p);
         return NULL;
@@ -133,9 +137,10 @@ proc_init(char* name)
 
     // set default exit status
     p->exit_status = STATUS_ALIVE;
-    
+    kprintf("exit stat \n");
     // initialize condvar
     condvar_init(p->wait_cv);
+    kprintf("condvar\n");
 
     // initialize fileTable
     p->fileTable[0] = &stdin;
@@ -150,6 +155,7 @@ proc_init(char* name)
 err_t
 proc_spawn(char* name, char** argv, struct proc **p)
 {
+    kprintf("spawn");
     err_t err;
     struct proc *proc;
     struct thread *t;
@@ -197,6 +203,7 @@ error:
 struct proc*
 proc_fork()
 {
+    kprintf("fork");
     kassert(proc_current());  // caller of fork must be a process
     struct proc *parent = proc_current();
     struct proc *child;
@@ -255,12 +262,14 @@ error:
 struct proc*
 proc_current()
 {
+    kprintf("curr");
     return thread_current()->proc;
 }
 
 void
 proc_attach_thread(struct proc *p, struct thread *t)
 {
+    kprintf("att thread");
     kassert(t);
     if (p) {
         list_append(&p->threads, &t->thread_node);
@@ -270,6 +279,7 @@ proc_attach_thread(struct proc *p, struct thread *t)
 bool
 proc_detach_thread(struct thread *t)
 {
+    kprintf("det thread");
     bool last_thread = False;
     struct proc *p = t->proc;
     if (p) {
@@ -282,6 +292,7 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
+    kprintf("wait");
     struct proc *p = proc_current();
     struct proc *child;
 
@@ -317,6 +328,7 @@ proc_wait(pid_t pid, int* status)
 void
 proc_exit(int status)
 {
+    kprintf("exit");
     struct thread *t = thread_current();
     struct proc *p = proc_current();
 
@@ -365,6 +377,7 @@ proc_exit(int status)
 static err_t
 proc_load(struct proc *p, char *path, vaddr_t *entry_point)
 {
+    kprintf("load");
     int i;
     err_t err;
     offset_t ofs = 0;
