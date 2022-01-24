@@ -207,6 +207,7 @@ proc_fork()
     if ((child = proc_init(parent->name)) == NULL) {
         return NULL;
     }
+    kprintf("finished init");
 
     // copy parent's memory to child
     as_copy_as(&(parent->as), &child->as);
@@ -219,16 +220,21 @@ proc_fork()
             fs_reopen_file(child->fileTable[i]); 
         }
     }
-  
+    kprintf("filetable");
+
     // create new thread to run the process
     if ((t = thread_create(child->name, child, DEFAULT_PRI)) == NULL) {
         goto error;
     }
 
+    kprintf("thread");
+
     // add to ptable
     spinlock_acquire(&ptable_lock);
     list_append(&ptable, &child->proc_node);
     spinlock_release(&ptable_lock);
+
+    kprintf("lock");
 
     // set up trapframe for a new process
     //tf_proc(t->tf, t->proc, entry_point, stackptr);

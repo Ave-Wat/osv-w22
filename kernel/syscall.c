@@ -170,17 +170,16 @@ sys_wait(void* arg)
 {
     sysarg_t pid, wstatus;
 
-    kassert(fetch_arg(arg, 1, (pid_t)pid));
-    kassert(fetch_arg(arg, 3, (int *)wstatus));
+    kassert(fetch_arg(arg, 1, &pid));
+    kassert(fetch_arg(arg, 3, &wstatus));
 
     //if(pid->parent does not have pid in its child_table, or has already waited on the child, raise error ERR_CHILD)
     //validate args here
-    if(!validate_ptr(wstatus, sizeof(int *))){
+    if(!validate_ptr((int *)wstatus, sizeof(int *))){
         return ERR_FAULT;
     }
 
-    int child_pid = proc_wait(pid, wstatus);
-
+    int child_pid = proc_wait(pid, (int *)wstatus);
     return child_pid;
 }
 
@@ -188,13 +187,14 @@ sys_wait(void* arg)
 static sysret_t
 sys_exit(void* arg)
 {
-    // temp code for lab1 to terminate the kernel after one process exits
-    // remove for lab 2 
-    kprintf("shutting down\n");
-    shutdown();
-    kprintf("oops still running\n");
-    for(;;) {}
-    panic("syscall exit not implemented");
+    sysarg_t status;
+
+    kassert(fetch_arg(arg, 1, &status));
+
+    proc_exit(status);
+
+    panic("function sys_exit should not return. However, sys_exit is returning");
+    return status;
 }
 
 // int getpid(void);
