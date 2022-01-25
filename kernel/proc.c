@@ -42,12 +42,12 @@ static struct proc* get_proc_by_pid(int pid){
     return NULL;
 }
 
-// finds a running child of the process that is passed in
+// finds a child of the process that is passed in
 static struct proc* find_child(struct proc* parent){
     spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
-        if (p->parent->pid == parent->pid && p->exit_status == STATUS_ALIVE){
+        if (p->parent->pid == parent->pid){
             spinlock_release(&ptable_lock);
             return p;
         }
@@ -219,6 +219,7 @@ proc_fork()
 {
     kprintf("entered fork \n");
     kassert(proc_current());  // caller of fork must be a process
+
     struct proc *parent = proc_current();
     struct proc *child;
     struct thread *t;
@@ -228,10 +229,12 @@ proc_fork()
     }
 
     // copy parent's memory to child
-    as_copy_as(&(parent->as), &child->as);
+    if(as_copy_as(&(parent->as), &child->as) != ERR_OK){
+        return NULL;
+    }
 
-    spinlock_acquire(&ptable_lock);
     // duplicate files from the parent process and reopen files that were open
+    spinlock_acquire(&ptable_lock);
     int length = sizeof(parent->fileTable) / sizeof(parent->fileTable[0]);
     for (int i = 0; i < length; i++) {
         if(parent->fileTable[i] != NULL){
@@ -256,6 +259,7 @@ proc_fork()
 
     // set return value in child to 0
     tf_set_return(t->tf, 0);
+    thread_start_context(t, NULL, NULL);
 
     // set child's parent pointer
     child->parent = parent;
@@ -316,10 +320,12 @@ proc_wait(pid_t pid, int* status)
                 condvar_wait(&(child->wait_cv), &ptable_lock);
             }
             remove_from_ptable(child->pid);
+            proc_free(child);
             spinlock_release(&ptable_lock);
+            pid = child->pid;
         }
         else{
-            //return error?
+            return ERR_CHILD;
         }
     } 
     // waiting on specific child
@@ -335,7 +341,13 @@ proc_wait(pid_t pid, int* status)
         while(child->exit_status == STATUS_ALIVE){
             condvar_wait(&(child->wait_cv), &ptable_lock);
         }
+
+        if (status) {
+            *status = child->exit_status;
+        }
+
         remove_from_ptable(child->pid);
+        proc_free(child);
         spinlock_release(&ptable_lock);
     }
 
@@ -370,7 +382,7 @@ proc_exit(int status)
     // release process's cwd
     fs_release_inode(p->cwd);
  
-    /* your code here */
+    spinlock_acquire(&ptable_lock);
     // close all open files for this process
     int length = sizeof(p->fileTable) / sizeof(p->fileTable[0]);
     for (int i = 0; i < length; i ++) {
@@ -379,22 +391,22 @@ proc_exit(int status)
         }
     }
 
-    spinlock_acquire(&ptable_lock);
     // check process table to see which child processes have not finished and hand them off to init. 
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *cur_process = list_entry(n, struct proc, proc_node);
         if (cur_process->parent->pid == p->pid && cur_process->exit_status == STATUS_ALIVE){
             cur_process->parent = init_proc;
-        }
+        }// TODO: exit processes here?
     }
     spinlock_release(&ptable_lock);
 
+    spinlock_acquire(&ptable_lock);
     // set this process' exit status to 1
-    // figure out when exit status should be 0
     p->exit_status = 1;
 
     // change condition variable for the process
     condvar_signal(&(p->wait_cv));
+    spinlock_release(&ptable_lock);
 
     // cleanup other stuff
     thread_exit(status);
