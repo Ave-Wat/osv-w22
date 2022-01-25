@@ -18,6 +18,7 @@ struct spinlock pid_lock;
 static int pid_allocator;
 struct kmem_cache *proc_allocator;
 
+void proc_free(struct proc* p);
 /* go through process table */
 static void ptable_dump(void);
 /* helper function for loading process's binary into its address space */ 
@@ -33,6 +34,7 @@ static struct proc* get_proc_by_pid(int pid){
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         if (p->pid == pid){
+            spinlock_release(&ptable_lock);
             return p;
         }
     }
@@ -40,23 +42,36 @@ static struct proc* get_proc_by_pid(int pid){
     return NULL;
 }
 
-// finds an exited child of the process that is passed in
-static struct proc* find_exited_child(struct proc* parent){
+// finds a running child of the process that is passed in
+static struct proc* find_child(struct proc* parent){
     spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
-        if (p->parent->pid == parent->pid && p->exit_status == 1){
+        if (p->parent->pid == parent->pid && p->exit_status == STATUS_ALIVE){
+            spinlock_release(&ptable_lock);
             return p;
         }
     }
     spinlock_release(&ptable_lock);
     return NULL;
+}
+
+static void remove_from_ptable(int pid){
+    spinlock_acquire(&ptable_lock);
+    for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
+        struct proc *cur = list_entry(n, struct proc, proc_node);
+        if (cur->pid == pid){
+            list_remove(n);
+            proc_free(cur);
+        }
+    }
+    spinlock_acquire(&ptable_lock);
 }
 
 static struct proc*
 proc_alloc()
 {
-    kprintf("alloc");
+    //kprintf("alloc");
     struct proc* p = (struct proc*) kmem_cache_alloc(proc_allocator);
     if (p != NULL) {
         spinlock_acquire(&pid_lock);
@@ -70,28 +85,28 @@ proc_alloc()
 static void
 ptable_dump(void)
 {
-    kprintf("dump");
-    kprintf("ptable dump:\n");
+    //kprintf("dump");
+    //kprintf("ptable dump:\n");
     spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         kprintf("Process %s: pid %d\n", p->name, p->pid);
     }
     spinlock_release(&ptable_lock);
-    kprintf("\n");
+    //kprintf("\n");
 }
 
 void
 proc_free(struct proc* p)
 {
-    kprintf("free");
+    //kprintf("free");
     kmem_cache_free(proc_allocator, p);
 }
 
 void
 proc_sys_init(void)
 {
-    kprintf("sys init");
+    kprintf("proc_sys_init");
     list_init(&ptable);
     spinlock_init(&ptable_lock);
     spinlock_init(&pid_lock);
@@ -105,7 +120,7 @@ proc_sys_init(void)
 static struct proc*
 proc_init(char* name)
 {
-    kprintf("init \n");
+    // kprintf("proc_init \n");
     struct super_block *sb;
     inum_t inum;
     err_t err;
@@ -137,10 +152,9 @@ proc_init(char* name)
 
     // set default exit status
     p->exit_status = STATUS_ALIVE;
-    kprintf("exit stat \n");
+
     // initialize condvar
-    condvar_init(p->wait_cv);
-    kprintf("condvar\n");
+    condvar_init(&(p->wait_cv));
 
     // initialize fileTable
     p->fileTable[0] = &stdin;
@@ -155,7 +169,7 @@ proc_init(char* name)
 err_t
 proc_spawn(char* name, char** argv, struct proc **p)
 {
-    kprintf("spawn");
+    // kprintf("spawn");
     err_t err;
     struct proc *proc;
     struct thread *t;
@@ -203,48 +217,41 @@ error:
 struct proc*
 proc_fork()
 {
-    kprintf("fork");
+    kprintf("entered fork \n");
     kassert(proc_current());  // caller of fork must be a process
     struct proc *parent = proc_current();
     struct proc *child;
     struct thread *t;
-    //vaddr_t entry_point;
-    //vaddr_t stackptr;
 
     if ((child = proc_init(parent->name)) == NULL) {
         return NULL;
     }
-    kprintf("finished init");
 
     // copy parent's memory to child
     as_copy_as(&(parent->as), &child->as);
 
+    spinlock_acquire(&ptable_lock);
     // duplicate files from the parent process and reopen files that were open
     int length = sizeof(parent->fileTable) / sizeof(parent->fileTable[0]);
-    for (int i = 0; i < length; i ++) {
+    for (int i = 0; i < length; i++) {
         if(parent->fileTable[i] != NULL){
             child->fileTable[i] = parent->fileTable[i];
             fs_reopen_file(child->fileTable[i]); 
         }
     }
-    kprintf("filetable");
+    spinlock_release(&ptable_lock);
 
     // create new thread to run the process
     if ((t = thread_create(child->name, child, DEFAULT_PRI)) == NULL) {
         goto error;
     }
 
-    kprintf("thread");
-
     // add to ptable
     spinlock_acquire(&ptable_lock);
+
     list_append(&ptable, &child->proc_node);
-    spinlock_release(&ptable_lock);
-
-    kprintf("lock");
-
-    // set up trapframe for a new process
-    //tf_proc(t->tf, t->proc, entry_point, stackptr);
+    
+    // copy trapframe from parent
     *t->tf = *thread_current()->tf;
 
     // set return value in child to 0
@@ -252,6 +259,9 @@ proc_fork()
 
     // set child's parent pointer
     child->parent = parent;
+
+    spinlock_release(&ptable_lock);
+
     return child;
 error:
     as_destroy(&child->as);
@@ -262,14 +272,14 @@ error:
 struct proc*
 proc_current()
 {
-    kprintf("curr");
+    //kprintf("curr");
     return thread_current()->proc;
 }
 
 void
 proc_attach_thread(struct proc *p, struct thread *t)
 {
-    kprintf("att thread");
+    //kprintf("att thread");
     kassert(t);
     if (p) {
         list_append(&p->threads, &t->thread_node);
@@ -279,7 +289,7 @@ proc_attach_thread(struct proc *p, struct thread *t)
 bool
 proc_detach_thread(struct thread *t)
 {
-    kprintf("det thread");
+    //kprintf("det thread");
     bool last_thread = False;
     struct proc *p = t->proc;
     if (p) {
@@ -292,19 +302,25 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
-    kprintf("wait");
+    kprintf("wait \n");
+    kprintf("pid: %d \n", pid);
     struct proc *p = proc_current();
     struct proc *child;
 
     // waiting for any child to exit
     if (pid == -1){ 
-        spinlock_acquire(&ptable_lock);
-        while((child = find_exited_child(p)) == NULL){
-            condvar_wait(child->wait_cv, &ptable_lock);
+        child = find_child(p);
+        if (child != NULL){
+            spinlock_acquire(&ptable_lock);
+            while(child->exit_status == STATUS_ALIVE){
+                condvar_wait(&(child->wait_cv), &ptable_lock);
+            }
+            remove_from_ptable(child->pid);
+            spinlock_release(&ptable_lock);
         }
-        
-        spinlock_release(&ptable_lock);
-
+        else{
+            //return error?
+        }
     } 
     // waiting on specific child
     else { 
@@ -317,18 +333,29 @@ proc_wait(pid_t pid, int* status)
         }
         spinlock_acquire(&ptable_lock);
         while(child->exit_status == STATUS_ALIVE){
-            condvar_wait(child->wait_cv, &ptable_lock);
+            condvar_wait(&(child->wait_cv), &ptable_lock);
         }
+        remove_from_ptable(child->pid);
         spinlock_release(&ptable_lock);
     }
 
+    // prune off zombies
+    spinlock_acquire(&ptable_lock);
+    for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
+        struct proc *cur = list_entry(n, struct proc, proc_node);
+        if (cur->parent->pid == p->pid && cur->exit_status == 1){
+            list_remove(n);
+            proc_free(cur);
+        }
+    }
+    spinlock_release(&ptable_lock);
     return pid;
 }
 
 void
 proc_exit(int status)
 {
-    kprintf("exit");
+    kprintf("exit \n");
     struct thread *t = thread_current();
     struct proc *p = proc_current();
 
@@ -352,6 +379,7 @@ proc_exit(int status)
         }
     }
 
+    spinlock_acquire(&ptable_lock);
     // check process table to see which child processes have not finished and hand them off to init. 
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *cur_process = list_entry(n, struct proc, proc_node);
@@ -359,25 +387,25 @@ proc_exit(int status)
             cur_process->parent = init_proc;
         }
     }
+    spinlock_release(&ptable_lock);
 
     // set this process' exit status to 1
     // figure out when exit status should be 0
     p->exit_status = 1;
 
     // change condition variable for the process
-    condvar_signal(p->wait_cv);
+    condvar_signal(&(p->wait_cv));
 
     // cleanup other stuff
     thread_exit(status);
     thread_cleanup(t);
-    proc_free(p);
 }
 
 /* helper function for loading process's binary into its address space */ 
 static err_t
 proc_load(struct proc *p, char *path, vaddr_t *entry_point)
 {
-    kprintf("load");
+    //kprintf("load");
     int i;
     err_t err;
     offset_t ofs = 0;
@@ -498,3 +526,5 @@ error:
     pmem_free(paddr);
     return err;
 }
+
+
