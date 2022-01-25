@@ -21,7 +21,7 @@ main()
     }
 
     if (n != nproc) {
-        error("wait-twice: fork claimed to work %d times! but only %d", nproc, n);
+        error("wait-twice: in a loop calling fork %d times, fork returned an error after %n calls", nproc, n);
     }
 
     // try waiting for each child twice

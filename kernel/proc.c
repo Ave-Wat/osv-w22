@@ -313,50 +313,44 @@ proc_wait(pid_t pid, int* status)
     struct proc *p = proc_current();
     struct proc *child;
 
-    // waiting for any child to exit
-    if (pid == -1){ 
-        kprintf("waiting on any child\n");
+    if(pid == -1){
         child = find_child(p);
-        if (child != NULL){
-            spinlock_acquire(&ptable_lock);
-            while(child->exit_status == STATUS_ALIVE){
-                condvar_wait(&(child->wait_cv), &ptable_lock);
-            }
-            pid = child->pid;
-            if (status) {
-                *status = child->exit_status;
-            }
-            remove_from_ptable(child->pid);
-            proc_free(child);
-            spinlock_release(&ptable_lock);
-        }
-        else{
-            return ERR_CHILD;
-        }
-    } 
-    // waiting on specific child
-    else { 
-        kprintf("waiting on specific child\n");
-        child = get_proc_by_pid(pid);
+        // if no child was found
         if (child == NULL){
-            return ERR_CHILD;
+            return NULL;
         }
-        if (child->parent->pid != p->pid){
-            return ERR_CHILD;
-        }
-        spinlock_acquire(&ptable_lock);
-        while(child->exit_status == STATUS_ALIVE){
-            condvar_wait(&(child->wait_cv), &ptable_lock);
-        }
-
-        if (status) {
-            *status = child->exit_status;
-        }
-
-        remove_from_ptable(child->pid);
-        proc_free(child);
-        spinlock_release(&ptable_lock);
+        pid = child->pid;
+    } else {
+        child = get_proc_by_pid(pid); 
     }
+
+    if(child->waited_on){
+        return ERR_CHILD;
+    }
+        
+    if (child == NULL){
+        return ERR_CHILD;
+    }
+    if (child->parent->pid != p->pid){
+        return ERR_CHILD;
+    }
+
+    kprintf("waiting on specific child\n");
+    
+    
+    spinlock_acquire(&ptable_lock);
+    child->waited_on = True;
+    while(child->exit_status == STATUS_ALIVE){
+        condvar_wait(&(child->wait_cv), &ptable_lock);
+    }
+
+    if (status) {
+        *status = child->exit_status;
+    }
+
+    remove_from_ptable(child->pid);
+    proc_free(child);
+    spinlock_release(&ptable_lock);
 
     // prune off zombies
     spinlock_acquire(&ptable_lock);

@@ -20,7 +20,7 @@ main()
     }
 
     if (n != nproc) {
-        error("forktest: fork claimed to work %d times! but only %d", nproc, n);
+        error("fork-test: in a loop calling fork %d times, fork returned an error after %n calls", nproc, n);
     }
 
     // wait to reclaim all children, make sure their exit status has greater pid than parent
