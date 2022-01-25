@@ -24,6 +24,7 @@ struct proc {
     int exit_status;                    // default is STATUS_ALIVE, 
     struct proc *parent;
     struct condvar wait_cv;                        // 0 means not waiting, 1 otherwise
+    bool waited_on;
 };
 
 struct proc *init_proc;
