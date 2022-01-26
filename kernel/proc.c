@@ -47,7 +47,7 @@ static struct proc* find_child(struct proc* parent){
     spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
-        if (p->parent->pid == parent->pid){
+        if (p->parent == parent){
             spinlock_release(&ptable_lock);
             return p;
         }
@@ -152,7 +152,7 @@ proc_init(char* name)
 
     // set default exit status
     p->exit_status = STATUS_ALIVE;
-
+    p->parent = NULL;
     // initialize condvar
     condvar_init(&p->wait_cv);
 
@@ -179,6 +179,9 @@ proc_spawn(char* name, char** argv, struct proc **p)
     if ((proc = proc_init(name)) == NULL) {
         return ERR_NOMEM;
     }
+
+    proc->parent = proc_current();
+
     // load binary of the process
     if ((err = proc_load(proc, name, &entry_point)) != ERR_OK) {
         goto error;
@@ -306,7 +309,8 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
-    //kprintf("(proc_wait)");
+    kprintf("(proc_wait)");
+    kprintf("(proc_wait) pid:  %d", pid);
     //ptable_dump();
     
     //kprintf("wait \n");
@@ -354,9 +358,11 @@ proc_wait(pid_t pid, int* status)
 void
 proc_exit(int status)
 {
-    //kprintf("exit \n");
+    
     struct thread *t = thread_current();
     struct proc *p = proc_current();
+
+    //kprintf("exit pid: %d \n", p->pid);
 
     // detach current thread, switch to kernel page table
     // free current address space if proc has no more threads
@@ -381,16 +387,17 @@ proc_exit(int status)
     //kprintf("(proc_exit) finished closing files \n");
 
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
-        //kprintf("(proc_exit) inside process loop \n");
+        
         struct proc *cur_process = list_entry(n, struct proc, proc_node);
-
+        //kprintf("(proc_exit) cur_process = %x\n", cur_process);
+        //kprintf("(proc_exit) cur_process->parent = %x \n", cur_process->parent);
         // running children: hand off to init_proc
-        if (cur_process->parent->pid == p->pid && cur_process->exit_status == STATUS_ALIVE){
+        if (cur_process->parent == p && cur_process->exit_status == STATUS_ALIVE){
             cur_process->parent = init_proc;
         } 
 
         // already exited children: remove from ptable and free struct
-        else if(cur_process->parent->pid == p->pid && cur_process->exit_status != STATUS_ALIVE){
+        else if(cur_process->parent == p && cur_process->exit_status != STATUS_ALIVE){
             list_remove(&cur_process->proc_node);
             proc_free(cur_process);
         }
