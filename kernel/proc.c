@@ -354,7 +354,7 @@ proc_wait(pid_t pid, int* status)
 void
 proc_exit(int status)
 {
-    kprintf("exit \n");
+    //kprintf("exit \n");
     struct thread *t = thread_current();
     struct proc *p = proc_current();
 
@@ -381,7 +381,7 @@ proc_exit(int status)
     //kprintf("(proc_exit) finished closing files \n");
 
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
-        kprintf("(proc_exit) inside process loop \n");
+        //kprintf("(proc_exit) inside process loop \n");
         struct proc *cur_process = list_entry(n, struct proc, proc_node);
 
         // running children: hand off to init_proc
@@ -395,7 +395,7 @@ proc_exit(int status)
             proc_free(cur_process);
         }
     }
-    kprintf("end of loop");
+    //kprintf("end of loop");
     // set this process' exit status to passed-in status
     p->exit_status = status;
     // change condition variable for the process
@@ -406,7 +406,7 @@ proc_exit(int status)
     thread_exit(status);
     thread_cleanup(t);
 
-    kprintf("(exit) end of exit \n");
+    //kprintf("(exit) end of exit \n");
 }
 
 /* helper function for loading process's binary into its address space */ 
