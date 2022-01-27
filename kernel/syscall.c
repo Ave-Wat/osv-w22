@@ -173,17 +173,19 @@ sys_wait(void* arg)
     kassert(fetch_arg(arg, 1, &pid));
     kassert(fetch_arg(arg, 2, &wstatus));
 
+    int child_pid;
+    //struct proc* child;
+
     if(!validate_ptr((int*)wstatus, sizeof(int*))){
         return ERR_FAULT;
     }
     //kprintf("(sys_wait) pid: %d \n", pid);
 
-    int child_pid;
     if (pid == -1){
         child_pid = proc_wait(ANY_CHILD, (int *)wstatus);
-        // if (child_pid == NULL){
-            
-        // }
+        if (child_pid == ERR_CHILD){
+            return ERR_CHILD;
+        }
     }
     else{
         child_pid = proc_wait(pid, (int *)wstatus);
@@ -191,7 +193,8 @@ sys_wait(void* arg)
             return ERR_CHILD;
         }
     }
-    
+    kprintf("(sys_wait) about to return from sys_wait \n");
+
     return child_pid;
 }
 
