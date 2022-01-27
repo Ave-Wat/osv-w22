@@ -214,7 +214,6 @@ error:
 struct proc*
 proc_fork()
 {
-    //kprintf("entered fork \n");
     kassert(proc_current());  // caller of fork must be a process
 
     struct proc *parent = proc_current();
@@ -302,7 +301,6 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
-    //kprintf("wait \n");
     struct proc *p = proc_current();
     struct proc *child;
     int child_pid;
@@ -357,8 +355,6 @@ proc_exit(int status)
     struct thread *t = thread_current();
     struct proc *p = proc_current();
 
-    //kprintf("exit pid: %d \n", p->pid);
-
     // detach current thread, switch to kernel page table
     // free current address space if proc has no more threads
     // order matters here
@@ -383,8 +379,6 @@ proc_exit(int status)
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         
         struct proc *cur_process = list_entry(n, struct proc, proc_node);
-        //kprintf("(proc_exit) cur_process = %x\n", cur_process);
-        //kprintf("(proc_exit) cur_process->parent = %x \n", cur_process->parent);
         // running children: hand off to init_proc
         if (cur_process->parent == p && cur_process->exit_status == STATUS_ALIVE){
             cur_process->parent = init_proc;
@@ -404,7 +398,6 @@ proc_exit(int status)
 
     // cleanup other stuff
     thread_exit(status);
-
 }
 
 /* helper function for loading process's binary into its address space */ 
