@@ -8,7 +8,6 @@
 
 #define ANY_CHILD -1
 #define STATUS_ALIVE 0xbeefeeb
-#define STATUS_ZOMBIE 0xbeefeee
 #define PROC_MAX_ARG 128
 #define PROC_NAME_LEN 32
 #define PROC_MAX_FILE 128
@@ -58,5 +57,9 @@ int proc_wait(pid_t, int* status);
 
 /* Exit a process with a status */
 void proc_exit(int);
+
+struct proc* get_proc_by_pid(int pid);
+
+int find_child_pid(struct proc* parent);
 
 #endif /* _PROC_H_ */

@@ -29,7 +29,7 @@ static err_t stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr);
 #define USTACK_ADDR(addr) (pg_ofs(addr) + USTACK_UPPERBOUND - pg_size);
 
 // get a process by its PID.
-static struct proc* get_proc_by_pid(int pid){
+struct proc* get_proc_by_pid(int pid){
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         if (p->pid == pid){
@@ -40,7 +40,7 @@ static struct proc* get_proc_by_pid(int pid){
 }
 
 // finds a child of the process that is passed in. Can be still running or exited
-static int find_child_pid(struct proc* parent){
+int find_child_pid(struct proc* parent){
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         if (p->parent == parent){
@@ -302,10 +302,6 @@ proc_detach_thread(struct thread *t)
 int
 proc_wait(pid_t pid, int* status)
 {
-    //kprintf("(proc_wait)");
-    //kprintf("(proc_wait) pid:  %d", pid);
-    //ptable_dump();
-    
     //kprintf("wait \n");
     struct proc *p = proc_current();
     struct proc *child;
@@ -318,7 +314,7 @@ proc_wait(pid_t pid, int* status)
         spinlock_release(&ptable_lock);
         // if no running or exited child was found, return NULL
         if (child_pid == NULL){
-            return ERR_CHILD;
+            return NULL;
         }
         pid = child_pid;
     } 
@@ -375,7 +371,6 @@ proc_exit(int status)
     fs_release_inode(p->cwd);
  
     spinlock_acquire(&ptable_lock);
-    //kprintf("(proc_exit) acquired first lock \n");
     // close all open files for this process
     for (int i = 0; i < PROC_MAX_FILE; i ++) {
         if(p->fileTable[i] != NULL){
@@ -401,7 +396,6 @@ proc_exit(int status)
             proc_free(cur_process);
         }
     }
-    //kprintf("end of loop");
     // set this process' exit status to passed-in status
     p->exit_status = status;
     // change condition variable for the process
