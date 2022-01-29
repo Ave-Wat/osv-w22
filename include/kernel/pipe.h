@@ -24,7 +24,7 @@ struct pipe {
 
 };
 
-struct pipe *init_pipe;
+void init_pipe(void);
 
 static ssize_t pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs);
 static ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs);
@@ -35,5 +35,7 @@ static struct file_operations pipe_ops = {
     .write = pipe_write,
     .close = pipe_close
 };
+
+void pipe_free(struct pipe *p);
 
 #endif
