@@ -41,7 +41,7 @@ void pipe_free(struct pipe *p) {
     kmem_cache_free(pipe_allocator, p);
 }
 
-static ssize_t pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs){
+static ssize_t pipe_write(struct file *file, void *buf, size_t count, offset_t *ofs){
     struct pipe *p = file->info;
     spinlock_acquire(&p->lock);
     while ((p->next_empty - p->front) == MAX) {
