@@ -183,8 +183,8 @@ sys_wait(void* arg)
     if (!cur_process){
         return ERR_FAULT;
     }
+
     if ((int)pid == -1){
-        //kprintf("(sys_wait) inside if statement, pid is: %d \n", pid);
         child_pid = proc_wait(ANY_CHILD, (int *)wstatus);
         
         if (child_pid != NULL){
@@ -197,7 +197,6 @@ sys_wait(void* arg)
             return proc_wait(pid, (int *)wstatus);
         }
     }
-
     return ERR_CHILD;
 }
 

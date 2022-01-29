@@ -10,13 +10,8 @@ from subprocess import Popen, TimeoutExpired
 # The number of seconds it takes to run the test suite
 TIMEOUT = {
     1: 60,
-<<<<<<< HEAD
-    3: 60,
-    4: 60,
-=======
     2: 60,
     3: 60,
->>>>>>> c884aedb9900e1923b4d4193a68fc4527e6877c5
 }
 
 test_weights = {
@@ -31,16 +26,6 @@ test_weights = {
     "1-read-small": 10,
     "1-readdir-test": 7,
     "1-write-bad-args": 7,
-<<<<<<< HEAD
-    "3-fork-fd": 25,
-    "3-fork-test": 25,
-    "3-fork-tree": 25,
-    "3-pipe-robust": 0,
-    "3-pipe-test": 0,
-    "3-race-test": 10,
-    "3-spawn-args": 0,
-    "3-wait-twice": 15,
-=======
     "2-fork-fd": 15,
     "2-fork-test": 15,
     "2-fork-tree": 15,
@@ -55,7 +40,6 @@ test_weights = {
     "3-pipe-robust": 20,
     "3-pipe-race": 20,
     "4-spawn-args": 0,
->>>>>>> c884aedb9900e1923b4d4193a68fc4527e6877c5
     "4-bad-mem-access": 10,
     "4-grow-stack": 25,
     "4-grow-stack-edgecase": 10,
@@ -100,11 +84,7 @@ def check_output(out, test, ofs):
 
 def test_summary(test_stats, lab, outputs, autograder):
     score = 0
-<<<<<<< HEAD
-    if lab == 1 or lab == 3 or lab == 4:
-=======
     if lab == 1 or lab == 2 or lab == 3:
->>>>>>> c884aedb9900e1923b4d4193a68fc4527e6877c5
         results = {"tests": []}
         for test, result in test_stats.items():
             if f"{lab}-{test}" in test_weights:
