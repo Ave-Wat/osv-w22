@@ -9,12 +9,19 @@
 
 static struct kmeme_cache *pipe_allocator;
 
+static struct file_operations pipe_ops = {
+    .read = pipe_read,
+    .write = pipe_write,
+    .close = pipe_close
+};
+
 static struct pipe*
 pipe_init()
 {
     struct pipe *p;
 
     struct file *f = fs_alloc_file();
+
     if(f == NULL) {
         return ERR_FAULT;
     }
@@ -33,7 +40,9 @@ pipe_init()
     spinlock_init(&p->lock);
     condvar_init(&p->data_written);
     condvar_init(&p->data_read);
-
+    // TODO open these two files
+    p->read_open = True;
+    p->write_open = True;
     f->info = p;
 }
 
@@ -46,17 +55,28 @@ pipe_free(struct pipe *p)
 static 
 ssize_t pipe_write(struct file *file, void *buf, size_t count, offset_t *ofs)
 {
-    //incorrect; need to use buf, count, and ofs
     struct pipe *p = file->info;
-    spinlock_acquire(&p->lock);
-    while ((p->next_empty - p->front) == MAX_SIZE) {
-        condvar_wait(&p->data_read, &p->lock);
+
+    // if read end is not open, return an error
+    if (!p->read_open){
+        //return error
     }
-    p->data[p->next_empty % MAX_SIZE] = p->data;
-    p->next_empty++;
+
+    spinlock_acquire(&p->lock);
+
+    // TODO should we cast count?
+    for (int i = 0; i < count; i++){
+        // if full, wait until a read occurs
+        while ((p->next_empty - p->front) == MAX_SIZE) {
+            condvar_wait(&p->data_read, &p->lock);
+        }
+        p->data[(i + p->next_empty) % MAX_SIZE] = buf[i];
+        p->next_empty++;
+    }
+
     condvar_signal(&p->data_written);
     spinlock_release(&p->lock);
-    
+
 }
 
 static ssize_t 
@@ -69,9 +89,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
     while (p->front == p->next_empty) {
         condvar_wait(&p->data_written, &p->lock);
     }
-    //read amount of bytes count from buffer buf
-    //below line is wrong
-    //pipe->data into buf
+    
     data = p->data[p->front % MAX_SIZE];
     p->front++;
     condvar_signal(&p->data_read);

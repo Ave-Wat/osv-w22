@@ -5,12 +5,11 @@
 #include <kernel/synch.h>
 #include <kernel/fs.h>
 
-#define MAX_SIZE 128
+#define MAX_SIZE 512
 
 struct pipe {
-    // Not confident in these two 
-    struct condvar read_open;
-    struct condvar write_open;
+    bool read_open;
+    bool write_open;
 
     // Below is for the blocking bounded queue
     // BBQ Synchronization variables
@@ -29,12 +28,6 @@ void init_pipe(void);
 static ssize_t pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs);
 static ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs);
 static void pipe_close(struct file *p);
-
-static struct file_operations pipe_ops = {
-    .read = pipe_read,
-    .write = pipe_write,
-    .close = pipe_close
-};
 
 void pipe_free(struct pipe *p);
 
