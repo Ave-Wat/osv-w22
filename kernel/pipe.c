@@ -118,5 +118,5 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
 }
 
 static void pipe_close(struct file *p){
-    
+
 }
