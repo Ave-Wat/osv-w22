@@ -53,7 +53,7 @@ pipe_free(struct pipe *p)
 }
 
 static 
-ssize_t pipe_write(struct file *file, void *buf, size_t count, offset_t *ofs)
+ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs)
 {
     struct pipe *p = file->info;
     int bytes_read = 0;
@@ -117,6 +117,20 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
     spinlock_release(&p->lock);
 }
 
-static void pipe_close(struct file *p){
+static void pipe_close(struct file *f){
+    if(f->info == NULL){
+        return ERR_FAULT;
+    }
 
+    struct pipe *p = f->info;
+    if(f->oflag == FS_RDONLY){
+        p->read_open = False;
+    } else if (f->oflag == FS_WRONLY){
+        p->write_open = False;
+    }
+    fs_close_file(f);
+    
+    if(p->read_open == False && p->write_open == False){
+        pipe_free(p);
+    }
 }
