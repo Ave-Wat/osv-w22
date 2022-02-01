@@ -29,6 +29,4 @@ static ssize_t pipe_read(struct file *file, void *buf, size_t count, offset_t *o
 static ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs);
 static void pipe_close(struct file *p);
 
-void pipe_free(struct pipe *p);
-
 #endif
