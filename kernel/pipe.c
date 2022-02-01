@@ -20,14 +20,16 @@ pipe_init(int* fds)
 {
     struct pipe *p;
 
-    struct file *f = fs_alloc_file();
+    struct file *read_file = fs_alloc_file();
+    struct file *write_file = fs_alloc_file();
 
-    if(f == NULL) {
-        return ERR_FAULT;
-    }
+    // if(f == NULL) {
+    //     return ERR_FAULT;
+    // }
+
     if (pipe_allocator == NULL) {
-        if ((pipe_allocator = kmem_cache_allocator(sizeof(struct pipe))) == NULL) {
-        return NULL;
+        if ((pipe_allocator = kmem_cache_create(sizeof(struct pipe))) == NULL) {
+            return NULL;
         }
     }
 
@@ -35,15 +37,26 @@ pipe_init(int* fds)
         return NULL;
     }
 
-    p->front = 0;
-    p->next_empty = 0;
     spinlock_init(&p->lock);
     condvar_init(&p->data_written);
     condvar_init(&p->data_read);
-    // TODO open these two files
+
     p->read_open = True;
     p->write_open = True;
-    f->info = p;
+    p->front = 0;
+    p->next_empty = 0;
+    p->data = char data[MAX_SIZE];
+
+    read_file->info = p;
+    write_file->info = p;
+
+    read_file->f_ops = &pipe_ops;
+    write_file->f_ops = &pipe_ops;
+
+    read_file->oflag = FS_RDONLY;
+    write_file->oflag = FS_WRONLY;
+    
+    return p;
 }
 
 void 
@@ -52,6 +65,7 @@ pipe_free(struct pipe *p)
     kmem_cache_free(pipe_allocator, p);
 }
 
+// TODO cast buf
 static 
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs)
 {
@@ -79,12 +93,12 @@ ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *o
     return bytes_read;
 }
 
+// TODO cast buf
 static ssize_t 
 pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
 {
     struct pipe *p = file->info;
     int bytes_read = 0;
-
     // if write end is not open, return 0 if pipe is empty. Otherwise, read up to count bytes and 
     // return number of bytes read
     if (!p->write_open){
@@ -115,12 +129,13 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
     }
     condvar_signal(&p->data_read);
     spinlock_release(&p->lock);
+    return bytes_read;
 }
 
 static void pipe_close(struct file *f){
-    if(f->info == NULL){
-        return ERR_FAULT;
-    }
+    // if(f->info == NULL){
+    //     return ERR_FAULT;
+    // }
 
     struct pipe *p = f->info;
     if(f->oflag == FS_RDONLY){
