@@ -543,7 +543,7 @@ sys_dup(void *arg)
 static sysret_t
 sys_pipe(void* arg)
 {
-    kprintf("inside sys_pipe");
+    kprintf("inside sys_pipe\n");
     sysarg_t fds;
 
     kassert(fetch_arg(arg, 1, &fds));

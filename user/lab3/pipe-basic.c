@@ -19,7 +19,7 @@ main()
     }
 
     // read a byte from the pipe
-    if ((read(fds[0], buf, 1)) != 1) {
+    if ((ret = read(fds[0], buf, 1)) != 1) {
         error("pipe-basic: failed to read byte written to pipe, return value was %d", ret);
     }
     buf[1] = 0; // add null terminator

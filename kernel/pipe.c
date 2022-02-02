@@ -68,7 +68,7 @@ pipe_free(struct pipe *p)
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs)
 {
     struct pipe *p = file->info;
-    int bytes_read = 0;
+    int bytes_wrote = 0;
     // if read end is not open, return error
     if (!p->read_open){
         return ERR_END;
@@ -82,11 +82,12 @@ ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *o
         }
         p->data[(p->next_empty) % MAX_SIZE] = ((char*)buf)[i];
         p->next_empty++;
-        bytes_read++;
+        bytes_wrote++;
     }
     condvar_signal(&p->data_written);
     spinlock_release(&p->lock);
-    return bytes_read;
+    kprintf((char *)bytes_wrote);
+    return bytes_wrote;
 }
 
 ssize_t 
@@ -100,6 +101,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
         spinlock_acquire(&p->lock);
         if (p->next_empty == p->front){
             spinlock_release(&p->lock);
+            kprintf("return 0\n");
             return 0;
         }
         for (int i = 0; i < (int)count; i++){
@@ -111,6 +113,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
             bytes_read++;
         }
         spinlock_release(&p->lock);
+        kprintf((char *)bytes_read);
         return bytes_read;
     }
 
@@ -135,7 +138,6 @@ void pipe_close(struct file *f){
     } else if (f->oflag == FS_WRONLY){
         p->write_open = False;
     }
-    fs_close_file(f);
     
     if(!p->read_open && !p->write_open){
         pipe_free(p);
