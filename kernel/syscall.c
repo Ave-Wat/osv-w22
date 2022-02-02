@@ -8,6 +8,7 @@
 #include <lib/stddef.h>
 #include <lib/string.h>
 #include <arch/asm.h>
+#include <kernel/pipe.h>
 
 // syscall handlers
 static sysret_t sys_fork(void* arg);
@@ -301,13 +302,6 @@ sys_read(void* arg)
     }
     
     return fs_read_file(p->fileTable[fd], (void*)buf, (size_t)count, &(p->fileTable[fd]->f_pos));
-    //return bytes_read;
-    // if(bytes_read < 0){
-    //     return ERR_INVAL;
-    // } else {
-    //     return bytes_read;
-    // }
-    // return ERR_INVAL;
 }
 
 // int write(int fd, const void *buf, size_t count)
@@ -549,7 +543,30 @@ sys_dup(void *arg)
 static sysret_t
 sys_pipe(void* arg)
 {
-    panic("syscall pipe not implemented");
+    kprintf("inside sys_pipe");
+    sysarg_t fds;
+
+    kassert(fetch_arg(arg, 1, &fds));
+
+    if(!validate_ptr((int *)fds, sizeof(int *))){
+        kprintf("validating pointer");
+        return ERR_FAULT;
+    }
+
+    if(!validate_fd(((int *)fds)[0]) || !validate_fd(((int *)fds)[1])){
+        kprintf("validating fd");
+        return ERR_FAULT;
+    }
+
+    // struct proc *cur = proc_current();
+    // if(cur->fileTable[((int *)fds)[0]] || cur->fileTable[((int *)fds)[1]]){
+    //     kprintf("checking filetable");
+    //     return ERR_FAULT;
+    // }
+
+    pipe_init((int *)fds);
+
+    return ERR_OK;
 }
 
 // void sys_info(struct sys_info *info);

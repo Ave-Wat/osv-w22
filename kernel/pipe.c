@@ -7,7 +7,8 @@
 #include <lib/errcode.h>
 #include <kernel/pipe.h>
 
-static struct kmeme_cache *pipe_allocator;
+
+static struct kmem_cache *pipe_allocator;
 
 static struct file_operations pipe_ops = {
     .read = pipe_read,
@@ -15,7 +16,7 @@ static struct file_operations pipe_ops = {
     .close = pipe_close
 };
 
-static struct pipe*
+struct pipe*
 pipe_init(int* fds)
 {
     struct pipe *p;
@@ -23,9 +24,9 @@ pipe_init(int* fds)
     struct file *read_file = fs_alloc_file();
     struct file *write_file = fs_alloc_file();
 
-    // if(f == NULL) {
-    //     return ERR_FAULT;
-    // }
+    struct proc *process = proc_current();
+    process->fileTable[fds[0]] = read_file;
+    process->fileTable[fds[1]] = write_file;
 
     if (pipe_allocator == NULL) {
         if ((pipe_allocator = kmem_cache_create(sizeof(struct pipe))) == NULL) {
@@ -45,7 +46,6 @@ pipe_init(int* fds)
     p->write_open = True;
     p->front = 0;
     p->next_empty = 0;
-    p->data = char data[MAX_SIZE];
 
     read_file->info = p;
     write_file->info = p;
@@ -64,27 +64,23 @@ pipe_free(struct pipe *p)
 {
     kmem_cache_free(pipe_allocator, p);
 }
-
-// TODO cast buf
-static 
+ 
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs)
 {
     struct pipe *p = file->info;
     int bytes_read = 0;
-
     // if read end is not open, return error
     if (!p->read_open){
         return ERR_END;
     }
 
     spinlock_acquire(&p->lock);
-    // TODO should we cast count?
-    // write count bytes to the bufferif full, wait until a read occurs
-    for (int i = 0; i < count; i++){
+    // write count bytes to the buffer. if full, wait until a read occurs
+    for (int i = 0; i < (int)count; i++){
         while ((p->next_empty - p->front) == MAX_SIZE) {
             condvar_wait(&p->data_read, &p->lock);
         }
-        p->data[(p->next_empty) % MAX_SIZE] = buf[i];
+        p->data[(p->next_empty) % MAX_SIZE] = ((char*)buf)[i];
         p->next_empty++;
         bytes_read++;
     }
@@ -93,8 +89,7 @@ ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *o
     return bytes_read;
 }
 
-// TODO cast buf
-static ssize_t 
+ssize_t 
 pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
 {
     struct pipe *p = file->info;
@@ -102,15 +97,16 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
     // if write end is not open, return 0 if pipe is empty. Otherwise, read up to count bytes and 
     // return number of bytes read
     if (!p->write_open){
+        spinlock_acquire(&p->lock);
         if (p->next_empty == p->front){
+            spinlock_release(&p->lock);
             return 0;
         }
-        spinlock_acquire(&p->lock);
-        for (int i = 0; i < count; i++){
+        for (int i = 0; i < (int)count; i++){
             if (p->next_empty == p->front){
                 break;
             }
-            buf[i] = p->data[(p->front) % MAX_SIZE];
+            ((char*)buf)[i] = p->data[(p->front) % MAX_SIZE];
             p->front++;
             bytes_read++;
         }
@@ -124,7 +120,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
         while (p->next_empty == p->front) {
             condvar_wait(&p->data_written, &p->lock);
         }
-        buf[i] = p->data[(p->front) % MAX_SIZE];
+        ((char*)buf)[i] = p->data[(p->front) % MAX_SIZE];
         p->front++;
     }
     condvar_signal(&p->data_read);
@@ -132,11 +128,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
     return bytes_read;
 }
 
-static void pipe_close(struct file *f){
-    // if(f->info == NULL){
-    //     return ERR_FAULT;
-    // }
-
+void pipe_close(struct file *f){
     struct pipe *p = f->info;
     if(f->oflag == FS_RDONLY){
         p->read_open = False;
@@ -145,7 +137,7 @@ static void pipe_close(struct file *f){
     }
     fs_close_file(f);
     
-    if(p->read_open == False && p->write_open == False){
+    if(!p->read_open && !p->write_open){
         pipe_free(p);
     }
 }
