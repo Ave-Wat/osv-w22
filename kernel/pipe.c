@@ -16,7 +16,7 @@ static struct file_operations pipe_ops = {
     .close = pipe_close
 };
 
-struct pipe*
+int 
 pipe_init(int* fds)
 {
     struct pipe *p;
@@ -25,8 +25,28 @@ pipe_init(int* fds)
     struct file *write_file = fs_alloc_file();
 
     struct proc *process = proc_current();
-    process->fileTable[fds[0]] = read_file;
-    process->fileTable[fds[1]] = write_file;
+
+    bool read_spot_found = False;
+    bool write_spot_found = False;
+    for(int i = 0; i < PROC_MAX_FILE; i++){
+        if(process->fileTable[i] == NULL){
+            process->fileTable[i] = read_file;
+            fds[0] = i;
+            read_spot_found = True;
+        }
+    }
+
+    for(int i = 0; i < PROC_MAX_FILE; i++){
+        if(process->fileTable[i] == NULL){
+            process->fileTable[i] = write_file;
+            fds[1] = i;
+            write_spot_found = True;
+        }
+    }
+
+    if (!(read_spot_found && write_spot_found)){
+        return ERR_NOMEM;
+    }
 
     if (pipe_allocator == NULL) {
         if ((pipe_allocator = kmem_cache_create(sizeof(struct pipe))) == NULL) {
@@ -56,7 +76,7 @@ pipe_init(int* fds)
     read_file->oflag = FS_RDONLY;
     write_file->oflag = FS_WRONLY;
     
-    return p;
+    return ERR_OK;
 }
 
 void 
@@ -86,7 +106,7 @@ ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *o
     }
     condvar_signal(&p->data_written);
     spinlock_release(&p->lock);
-    kprintf((char *)bytes_wrote);
+    //kprintf(bytes_wrote);
     return bytes_wrote;
 }
 
@@ -101,7 +121,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
         spinlock_acquire(&p->lock);
         if (p->next_empty == p->front){
             spinlock_release(&p->lock);
-            kprintf("return 0\n");
+            //kprintf("return 0\n");
             return 0;
         }
         for (int i = 0; i < (int)count; i++){
@@ -113,7 +133,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
             bytes_read++;
         }
         spinlock_release(&p->lock);
-        kprintf((char *)bytes_read);
+        //kprintf((char *)bytes_read);
         return bytes_read;
     }
 
@@ -132,6 +152,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
 }
 
 void pipe_close(struct file *f){
+    kprintf("inside pipe close");
     struct pipe *p = f->info;
     if(f->oflag == FS_RDONLY){
         p->read_open = False;
@@ -139,6 +160,14 @@ void pipe_close(struct file *f){
         p->write_open = False;
     }
     
+    struct proc *process = proc_current();
+
+    for(int i = 0; i < PROC_MAX_FILE; i++){
+        if(process->fileTable[i] == f){
+            process->fileTable[i] = NULL;
+        }
+    }
+
     if(!p->read_open && !p->write_open){
         pipe_free(p);
     }

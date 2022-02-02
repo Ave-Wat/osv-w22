@@ -543,7 +543,7 @@ sys_dup(void *arg)
 static sysret_t
 sys_pipe(void* arg)
 {
-    kprintf("inside sys_pipe\n");
+    kprintf("inside sys_pipe \n");
     sysarg_t fds;
 
     kassert(fetch_arg(arg, 1, &fds));
@@ -554,17 +554,16 @@ sys_pipe(void* arg)
     }
 
     if(!validate_fd(((int *)fds)[0]) || !validate_fd(((int *)fds)[1])){
-        kprintf("validating fd");
+        kprintf("validating fd \n");
         return ERR_FAULT;
     }
 
-    // struct proc *cur = proc_current();
-    // if(cur->fileTable[((int *)fds)[0]] || cur->fileTable[((int *)fds)[1]]){
-    //     kprintf("checking filetable");
-    //     return ERR_FAULT;
-    // }
+    int result = pipe_init((int *)fds);
 
-    pipe_init((int *)fds);
+    if (result == ERR_NOMEM){
+        kprintf("returning nomem \n");
+        return ERR_NOMEM;
+    }
 
     return ERR_OK;
 }

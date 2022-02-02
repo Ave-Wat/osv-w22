@@ -28,6 +28,6 @@ void init_pipe(void);
 ssize_t pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs);
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs);
 void pipe_close(struct file *f);
-struct pipe* pipe_init(int* fds);
+int pipe_init(int* fds);
 
 #endif
