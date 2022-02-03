@@ -553,18 +553,12 @@ sys_pipe(void* arg)
         return ERR_FAULT;
     }
 
-    if(!validate_fd(((int *)fds)[0]) || !validate_fd(((int *)fds)[1])){
-        // kprintf("validating fd \n");
-        return ERR_FAULT;
-    }
-
     int result = pipe_init((int *)fds);
 
     if (result == ERR_NOMEM){
         // kprintf("returning nomem \n");
         return ERR_NOMEM;
     }
-
     return ERR_OK;
 }
 
