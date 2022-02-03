@@ -103,12 +103,19 @@ pipe_free(struct pipe *p)
  
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs)
 {
+    
     struct pipe *p = file->info;
     int bytes_wrote = 0;
     // if read end is not open, return error
     if (!p->read_open){
         return ERR_END;
     }
+
+    // kprintf("inside pipe_write \n");
+    // for (int i = 0; i < 50; i++){
+    //     kprintf("data[i]: %c \n", p->data[i]);
+    // }
+    // kprintf("\n");
 
     spinlock_acquire(&p->lock);
     // write count bytes to the buffer. if full, wait until a read occurs
@@ -131,9 +138,17 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
 {
     struct pipe *p = file->info;
     int bytes_read = 0;
+
     // if write end is not open, return 0 if pipe is empty. Otherwise, read up to count bytes and 
     // return number of bytes read
+    // kprintf("inside pipe_read \n");
+    // for (int i = 0; i < 50; i++){
+    //     kprintf("data[i]: %c \n", p->data[i]);
+    // }
+    // kprintf("\n");
+
     if (!p->write_open){
+        // kprintf("write isn't open!!!");
         spinlock_acquire(&p->lock);
         if (p->next_empty == p->front){
             spinlock_release(&p->lock);
@@ -161,6 +176,7 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
         }
         ((char*)buf)[i] = p->data[(p->front) % MAX_SIZE];
         p->front++;
+        bytes_read++;
     }
     condvar_signal(&p->data_read);
     spinlock_release(&p->lock);

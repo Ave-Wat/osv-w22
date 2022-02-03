@@ -5,7 +5,7 @@
 #include <kernel/synch.h>
 #include <kernel/fs.h>
 
-#define MAX_SIZE 512
+#define MAX_SIZE 50
 
 struct pipe {
     bool read_open;
