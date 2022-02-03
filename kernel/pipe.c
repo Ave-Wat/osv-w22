@@ -19,6 +19,9 @@ static struct file_operations pipe_ops = {
 int 
 pipe_init(int* fds)
 {
+    // kprintf("\n");
+    // kprintf("fds[0]: %d \n", fds[0]);
+    // kprintf("fds[1]: %d \n", fds[1]);
     struct pipe *p;
 
     struct file *read_file = fs_alloc_file();
@@ -28,23 +31,36 @@ pipe_init(int* fds)
 
     bool read_spot_found = False;
     bool write_spot_found = False;
-    for(int i = 0; i < PROC_MAX_FILE; i++){
-        if(process->fileTable[i] == NULL){
-            process->fileTable[i] = read_file;
-            fds[0] = i;
-            read_spot_found = True;
-        }
-    }
 
     for(int i = 0; i < PROC_MAX_FILE; i++){
         if(process->fileTable[i] == NULL){
-            process->fileTable[i] = write_file;
-            fds[1] = i;
+            // kprintf("spot for read found!!!: %d \n", i);
+            process->fileTable[i] = read_file;
+            fds[0] = i;
+            read_spot_found = True;
+            break;
+        }
+    }
+
+    for(int j = 0; j < PROC_MAX_FILE; j++){
+        if(process->fileTable[j] == NULL){
+            // kprintf("spot for write found!!!: %d \n", j);
+            process->fileTable[j] = write_file;
+            fds[1] = j;
             write_spot_found = True;
+            break;
         }
     }
 
     if (!(read_spot_found && write_spot_found)){
+        if (read_spot_found){
+            process->fileTable[fds[0]] = NULL;
+            fds[0] = 0;
+        }
+        if (write_spot_found){
+            process->fileTable[fds[1]] = NULL;
+            fds[1] = 0;
+        }
         return ERR_NOMEM;
     }
 
@@ -152,8 +168,8 @@ pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs)
 }
 
 void pipe_close(struct file *f){
-    kprintf("inside pipe close");
-    struct pipe *p = f->info;
+    struct pipe *p = (struct pipe*)f->info;
+    
     if(f->oflag == FS_RDONLY){
         p->read_open = False;
     } else if (f->oflag == FS_WRONLY){
