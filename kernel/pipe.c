@@ -103,7 +103,6 @@ pipe_free(struct pipe *p)
  
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs)
 {
-    
     struct pipe *p = file->info;
     int bytes_wrote = 0;
     // if read end is not open, return error
@@ -197,6 +196,7 @@ void pipe_close(struct file *f){
     for(int i = 0; i < PROC_MAX_FILE; i++){
         if(process->fileTable[i] == f){
             process->fileTable[i] = NULL;
+            break;
         }
     }
 

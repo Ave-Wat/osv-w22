@@ -53,7 +53,6 @@ main()
         error("pipe-errors: pipe() reused already open file descriptors %d and %d\n", pipe_fds[0], pipe_fds[1]);
     }
 
-
     pass("pipe-errors");
     exit(0);
 }
