@@ -31,7 +31,8 @@ main()
             }
         }
         exit(getpid());
-    } else if (pid > 0) {
+    } 
+    else if (pid > 0) {
         // parent close its write pipe
         if ((ret = close(fds[1])) != ERR_OK) {
             error("pipe-test: failed to close write pipe, return value was %d", ret);

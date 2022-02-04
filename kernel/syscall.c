@@ -543,23 +543,14 @@ sys_dup(void *arg)
 static sysret_t
 sys_pipe(void* arg)
 {
-    // kprintf("inside sys_pipe \n");
     sysarg_t fds;
 
     kassert(fetch_arg(arg, 1, &fds));
 
     if(!validate_ptr((int *)fds, sizeof(int *))){
-        // kprintf("validating pointer");
         return ERR_FAULT;
     }
-
-    int result = pipe_init((int *)fds);
-
-    if (result == ERR_NOMEM){
-        // kprintf("returning nomem \n");
-        return ERR_NOMEM;
-    }
-    return ERR_OK;
+    return pipe_init((int *)fds);
 }
 
 // void sys_info(struct sys_info *info);

@@ -5,7 +5,7 @@
 #include <kernel/synch.h>
 #include <kernel/fs.h>
 
-#define MAX_SIZE 50
+#define MAX_SIZE 512
 
 struct pipe {
     bool read_open;
@@ -23,7 +23,7 @@ struct pipe {
 
 };
 
-void init_pipe(void);
+//void init_pipe(void);
 
 ssize_t pipe_read(struct file *file, void *buf, size_t count, offset_t *ofs);
 ssize_t pipe_write(struct file *file, const void *buf, size_t count, offset_t *ofs);
