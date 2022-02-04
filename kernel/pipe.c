@@ -174,15 +174,6 @@ void pipe_close(struct file *f){
         p->write_open = False;
     }
     
-    //struct proc *process = proc_current();
-
-    // for(int i = 0; i < PROC_MAX_FILE; i++){
-    //     if(process->fileTable[i] == f){
-    //         process->fileTable[i] = NULL;
-    //         break;
-    //     }
-    // }
-
     if(!p->read_open && !p->write_open){
         pipe_free(p);
     }
