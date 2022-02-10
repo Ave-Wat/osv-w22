@@ -5,7 +5,7 @@ main()
 {
     char buf[500];
     int fds[2], pid;
-    int seq, i, n, /* cc, total, */ ret/* , status */; 
+    int seq, i, n,  cc, total, ret , status; 
 
     // create a pipe
     if ((ret = pipe(fds)) != ERR_OK) {
@@ -31,8 +31,9 @@ main()
             }
         }
         exit(getpid());
-    } else if (pid > 0) {
-        /* // parent close its write pipe
+    } 
+    else if (pid > 0) {
+        // parent close its write pipe
         if ((ret = close(fds[1])) != ERR_OK) {
             error("pipe-test: failed to close write pipe, return value was %d", ret);
         }
@@ -55,7 +56,7 @@ main()
         }
         if ((ret = wait(-1, &status)) < 0 || status != pid) {
             error("pipe-test: failed to wait for child or child exit status wrong, return value was %d", ret);
-        } */
+        }
     } else {
         error("pipe-test: fork() failed %d", pid);
     }

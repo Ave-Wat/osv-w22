@@ -50,22 +50,9 @@ int find_child_pid(struct proc* parent){
     return NULL;
 }
 
-// static void remove_from_ptable(int pid){
-//     spinlock_acquire(&ptable_lock);
-//     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
-//         struct proc *cur = list_entry(n, struct proc, proc_node);
-//         if (cur->pid == pid){
-//             list_remove(n);
-//             proc_free(cur);
-//         }
-//     }
-//     spinlock_acquire(&ptable_lock);
-// }
-
 static struct proc*
 proc_alloc()
 {
-    //kprintf("alloc");
     struct proc* p = (struct proc*) kmem_cache_alloc(proc_allocator);
     if (p != NULL) {
         spinlock_acquire(&pid_lock);
@@ -79,28 +66,23 @@ proc_alloc()
 static void
 ptable_dump(void)
 {
-    //kprintf("dump");
-    //kprintf("ptable dump:\n");
     spinlock_acquire(&ptable_lock);
     for (Node *n = list_begin(&ptable); n != list_end(&ptable); n = list_next(n)) {
         struct proc *p = list_entry(n, struct proc, proc_node);
         kprintf("Process %s: pid %d\n", p->name, p->pid);
     }
     spinlock_release(&ptable_lock);
-    //kprintf("\n");
 }
 
 void
 proc_free(struct proc* p)
 {
-    //kprintf("free");
     kmem_cache_free(proc_allocator, p);
 }
 
 void
 proc_sys_init(void)
 {
-    //kprintf("proc_sys_init");
     list_init(&ptable);
     spinlock_init(&ptable_lock);
     spinlock_init(&pid_lock);
@@ -114,7 +96,6 @@ proc_sys_init(void)
 static struct proc*
 proc_init(char* name)
 {
-    // kprintf("proc_init \n");
     struct super_block *sb;
     inum_t inum;
     err_t err;
@@ -271,14 +252,12 @@ error:
 struct proc*
 proc_current()
 {
-    //kprintf("curr");
     return thread_current()->proc;
 }
 
 void
 proc_attach_thread(struct proc *p, struct thread *t)
 {
-    //kprintf("att thread");
     kassert(t);
     if (p) {
         list_append(&p->threads, &t->thread_node);
@@ -288,7 +267,6 @@ proc_attach_thread(struct proc *p, struct thread *t)
 bool
 proc_detach_thread(struct thread *t)
 {
-    //kprintf("det thread");
     bool last_thread = False;
     struct proc *p = t->proc;
     if (p) {
@@ -404,7 +382,6 @@ proc_exit(int status)
 static err_t
 proc_load(struct proc *p, char *path, vaddr_t *entry_point)
 {
-    //kprintf("load");
     int i;
     err_t err;
     offset_t ofs = 0;
