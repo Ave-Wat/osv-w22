@@ -478,17 +478,17 @@ stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr)
     }
     memset((void*) kmap_p2v(paddr), 0, pg_size);
     // create memregion for stack
-    if (as_map_memregion(&p->as, stacktop, pg_size, MEMPERM_URW, NULL, 0, False) == NULL) {
+    if (as_map_memregion(&p->as, stacktop, pg_size*10, MEMPERM_URW, NULL, 0, False) == NULL) {
         err = ERR_NOMEM;
         goto error;
     }
-    // map in first stack page
-    if ((err = vpmap_map(p->as.vpmap, stacktop, paddr, 1, MEMPERM_URW)) != ERR_OK) {
+    // map in first 10 stack pages
+    if ((err = vpmap_map(p->as.vpmap, stacktop, paddr, 10, MEMPERM_URW)) != ERR_OK) {
         goto error;
     }
     // kernel virtual address of the user stack, points to top of the stack
     // as you allocate things on stack, move stackptr downward.
-    stackptr = kmap_p2v(paddr) + pg_size;
+    stackptr = kmap_p2v(paddr) + pg_size*10;
 
     /* Your Code Here.  */
     // allocate space for fake return address, argc, argv
