@@ -3,9 +3,7 @@
 #include <kernel/trap.h>
 #include <lib/usyscall.h>
 
-
 size_t user_pgfault = 0;
-
 
 void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
@@ -16,15 +14,13 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     intr_set_level(INTR_ON);
 
     /* Your Code Here. */
-    if (USTACK_UPPERBOUND >= fault_addr && (USTACK_UPPERBOUND + pg_size*10) <= fault_addr){
+    if (USTACK_UPPERBOUND >= fault_addr && (USTACK_UPPERBOUND - pg_size * 10) <= fault_addr){
         paddr_t new_page_addr;
         pmem_alloc(new_page_addr);
         memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
 
         //add new page to pagetable
-        //not sure if USTACK_UPPERBOUND-pg_size is the correct start of the corresponding vaddr
-        vpmap_map(proc_current()->as.vpmap, USTACK_UPPERBOUND-pg_size, new_page_addr, 1, MEMPERM_URW);
-
+        vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, MEMPERM_URW);
     }
 
     /* End Your Code */

@@ -470,7 +470,7 @@ stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr)
     err_t err;
     paddr_t paddr;
     vaddr_t stackptr;
-    vaddr_t stacktop = USTACK_UPPERBOUND-pg_size;
+    vaddr_t stacktop = USTACK_UPPERBOUND - 10 * pg_size;
 
     // allocate a page of physical memory for stack
     if ((err = pmem_alloc(&paddr)) != ERR_OK) {
@@ -478,12 +478,12 @@ stack_setup(struct proc *p, char **argv, vaddr_t* ret_stackptr)
     }
     memset((void*) kmap_p2v(paddr), 0, pg_size);
     // create memregion for stack
-    if (as_map_memregion(&p->as, stacktop, pg_size*10, MEMPERM_URW, NULL, 0, False) == NULL) {
+    if (as_map_memregion(&p->as, stacktop, pg_size * 10, MEMPERM_URW, NULL, 0, False) == NULL) {
         err = ERR_NOMEM;
         goto error;
     }
     // map in first stack page
-    if ((err = vpmap_map(p->as.vpmap, stacktop, paddr, 1, MEMPERM_URW)) != ERR_OK) {
+    if ((err = vpmap_map(p->as.vpmap, USTACK_UPPERBOUND - pg_size, paddr, 1, MEMPERM_URW)) != ERR_OK) {
         goto error;
     }
     // kernel virtual address of the user stack, points to top of the stack
