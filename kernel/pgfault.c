@@ -14,7 +14,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     intr_set_level(INTR_ON);
 
     /* Your Code Here. */
-    struct memregion *region = as_find_memregion(proc_current()->as, fault_addr, pg_size);
+    struct memregion *region = as_find_memregion(&(proc_current()->as), fault_addr, pg_size);
 
     // a write on a read only memory permission is not valid
     if (region->perm == MEMPERM_R && write){
