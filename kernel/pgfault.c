@@ -35,6 +35,12 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, MEMPERM_URW);
     }
 
+    // if fault_addr is within the heap memregion
+    as_find_memregion(&(proc_current()->as), fault_addr, pg_size);
+    if (fault_addr <= ) {
+
+    }
+
     /* End Your Code */
 
     if (user) {
