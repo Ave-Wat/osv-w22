@@ -255,13 +255,25 @@ found:
 err_t
 memregion_extend(struct memregion *region, ssize_t size, vaddr_t *old_bound)
 {
-    //TODO check whether the new region overlaps with another (ERR_VM_BOUND)
-    //TODO check whether the ending address would be before the start address (ERR_VM_INVALID)
-    old_bound = region->end;
-    as_map_memregion(&(proc_current()->as), region->end, size, MEMPERM_URW, NULL, 0, False);
-   
+    // check if extending the region would cause overlap with other region
+    struct memregion *overlapRegion = as_find_memregion(proc_current()->as, region->end + size, size);
+    if (overlapRegion){
+        return ERR_VM_BOUND;
+    }
+
+    // if the ending address would be less than the starting address(due to size being negative)
+    if (region->end + size < region->start){
+        return ERR_VM_INVALID;
+    }
+
+    *old_bound = region->end;
+
+    // is this the correct way of extending the memregion?
+    region->end = region->end + size;
+
+    //as_map_memregion(&(proc_current()->as), region->end, size, MEMPERM_URW, NULL, 0, False);
+    
     return ERR_OK;
-   
 }
 
 err_t

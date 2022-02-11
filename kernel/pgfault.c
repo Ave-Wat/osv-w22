@@ -14,9 +14,21 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     intr_set_level(INTR_ON);
 
     /* Your Code Here. */
-    if (USTACK_UPPERBOUND >= fault_addr && (USTACK_UPPERBOUND - pg_size * 10) <= fault_addr){
+    struct memregion *region = as_find_memregion(proc_current()->as, fault_addr, pg_size);
+
+    // a write on a read only memory permission is not valid
+    if (region->perm == MEMPERM_R && write){
+        return;
+    }
+
+    // if fault_addr is within the stack memregion
+    if (fault_addr <= USTACK_UPPERBOUND && fault_addr >= (USTACK_UPPERBOUND - pg_size * 10)){
         paddr_t new_page_addr;
+
+        // allocate physical page
         pmem_alloc(new_page_addr);
+
+        // memset page to 0s
         memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
 
         //add new page to pagetable
