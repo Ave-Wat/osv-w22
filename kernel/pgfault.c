@@ -1,7 +1,7 @@
 #include <kernel/proc.h>
 #include <kernel/console.h>
 #include <kernel/trap.h>
-#include <lib/usyscall.h>
+#include <arch/mmu.h>
 #include <lib/string.h>
 #include <kernel/vpmap.h>
 
@@ -27,16 +27,18 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
 
     // if fault_addr is within the stack memregion
     if (fault_addr <= USTACK_UPPERBOUND && fault_addr >= (USTACK_UPPERBOUND - pg_size * 10)){
-        paddr_t *new_page_addr;
+        paddr_t new_page_addr;
 
         // allocate physical page
-        pmem_alloc(new_page_addr);
+        pmem_alloc(&new_page_addr);
 
         // memset page to 0s
-        memset((void*) kmap_p2v(*new_page_addr), 0, pg_size);
+        memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
 
         //add new page to pagetable
-        vpmap_map(proc_current()->as.vpmap, fault_addr, *new_page_addr, 1, MEMPERM_URW);
+        vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, MEMPERM_URW);
+        
+        return;
     }
 
     // if fault_addr is within the heap memregion
@@ -44,18 +46,19 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
 
     // if fault_addr is within the heap memregion
     if (fault_addr <= heap_region->end && fault_addr >= heap_region->start){
-        paddr_t *new_page_addr;
+        paddr_t new_page_addr;
 
         // allocate physical page
-        pmem_alloc(new_page_addr);
+        pmem_alloc(&new_page_addr);
 
         // memset page to 0s
-        memset((void*) kmap_p2v(*new_page_addr), 0, pg_size);
+        memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
 
         //add new page to pagetable
-        vpmap_map(proc_current()->as.vpmap, fault_addr, *new_page_addr, 1, MEMPERM_URW);
-    }
+        vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, MEMPERM_URW);
 
+        return;
+    }
     /* End Your Code */
 
     if (user) {

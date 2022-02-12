@@ -498,8 +498,8 @@ sys_sbrk(void *arg)
 {
     sysarg_t increment;
     kassert(fetch_arg(arg, 1, &increment));
-    vaddr_t *old_bound;
-    return memregion_extend((proc_current()->as).heap, increment, old_bound);
+    vaddr_t old_bound;
+    return memregion_extend((proc_current()->as).heap, increment, &old_bound);
 }
 
 // void memifo();
