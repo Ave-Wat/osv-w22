@@ -2,6 +2,8 @@
 #include <kernel/console.h>
 #include <kernel/trap.h>
 #include <lib/usyscall.h>
+#include <lib/string.h>
+#include <kernel/vpmap.h>
 
 size_t user_pgfault = 0;
 
@@ -14,6 +16,8 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     intr_set_level(INTR_ON);
 
     /* Your Code Here. */
+
+    // get memregion of fault_addr
     struct memregion *region = as_find_memregion(&(proc_current()->as), fault_addr, pg_size);
 
     // a write on a read only memory permission is not valid
@@ -23,22 +27,33 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
 
     // if fault_addr is within the stack memregion
     if (fault_addr <= USTACK_UPPERBOUND && fault_addr >= (USTACK_UPPERBOUND - pg_size * 10)){
-        paddr_t new_page_addr;
+        paddr_t *new_page_addr;
 
         // allocate physical page
         pmem_alloc(new_page_addr);
 
         // memset page to 0s
-        memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
+        memset((void*) kmap_p2v(*new_page_addr), 0, pg_size);
 
         //add new page to pagetable
-        vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, MEMPERM_URW);
+        vpmap_map(proc_current()->as.vpmap, fault_addr, *new_page_addr, 1, MEMPERM_URW);
     }
 
     // if fault_addr is within the heap memregion
-    as_find_memregion(&(proc_current()->as), fault_addr, pg_size);
-    if (fault_addr <= ) {
+    struct memregion *heap_region = (proc_current()->as).heap;
 
+    // if fault_addr is within the heap memregion
+    if (fault_addr <= heap_region->end && fault_addr >= heap_region->start){
+        paddr_t *new_page_addr;
+
+        // allocate physical page
+        pmem_alloc(new_page_addr);
+
+        // memset page to 0s
+        memset((void*) kmap_p2v(*new_page_addr), 0, pg_size);
+
+        //add new page to pagetable
+        vpmap_map(proc_current()->as.vpmap, fault_addr, *new_page_addr, 1, MEMPERM_URW);
     }
 
     /* End Your Code */

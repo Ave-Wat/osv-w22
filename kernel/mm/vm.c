@@ -267,12 +267,8 @@ memregion_extend(struct memregion *region, ssize_t size, vaddr_t *old_bound)
     }
 
     *old_bound = region->end;
-
-    // is this the correct way of extending the memregion?
     region->end = region->end + size;
 
-    //as_map_memregion(&(proc_current()->as), region->end, size, MEMPERM_URW, NULL, 0, False);
-    
     return ERR_OK;
 }
 
