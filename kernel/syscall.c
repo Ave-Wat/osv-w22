@@ -504,7 +504,7 @@ sys_sbrk(void *arg)
     if ((extend_result = memregion_extend((proc_current()->as).heap, increment, &old_bound) == ERR_OK)){
         return old_bound;
     }
-    return extend_result;
+    return ERR_NOMEM;
 }
 
 // void memifo();

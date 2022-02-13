@@ -17,11 +17,9 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     else{
         panic("Kernel error in page fault handler \n");
     }
-    
+
     // turn on interrupt now that we have the fault address 
     intr_set_level(INTR_ON);
-
-    /* Your Code Here. */
 
     // if there is a page protection issue, then exit process
     if (present){
@@ -50,19 +48,17 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
 
     //add new page to pagetable
     err_t vpmap_status;
-
     if ((vpmap_status = vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, region->perm) == ERR_VPMAP_MAP)){
+        pmem_free(new_page_addr);
         proc_exit(-1);
     }
     
-    /* End Your Code */
-    // if (user) {
-    //     // kprintf("fault addres %p, present %d, wrie %d, user %d\n", fault_addr, present, write, user);
-    //     proc_exit(-1);
-    //     panic("unreachable");
-    // } else {
-    //     // kprintf("fault addr %p\n", fault_addr);
-    //     panic("Kernel error in page fault handler\n");
-    // }
-    return;
+    if (user) {
+        // kprintf("fault addres %p, present %d, wrie %d, user %d\n", fault_addr, present, write, user);
+        proc_exit(-1);
+        panic("unreachable");
+    } else {
+        // kprintf("fault addr %p\n", fault_addr);
+        panic("Kernel error in page fault handler\n");
+    }
 }
