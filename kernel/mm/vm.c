@@ -262,7 +262,7 @@ memregion_extend(struct memregion *region, ssize_t size, vaddr_t *old_bound)
     }
 
     // if the ending address would be less than the starting address(due to size being negative)
-    if (region->end + size < region->start){
+    if ((region->end + size) < region->start){
         return ERR_VM_INVALID;
     }
 

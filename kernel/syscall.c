@@ -499,7 +499,12 @@ sys_sbrk(void *arg)
     sysarg_t increment;
     kassert(fetch_arg(arg, 1, &increment));
     vaddr_t old_bound;
-    return memregion_extend((proc_current()->as).heap, increment, &old_bound);
+    
+    err_t extend_result;
+    if ((extend_result = memregion_extend((proc_current()->as).heap, increment, &old_bound) == ERR_OK)){
+        return old_bound;
+    }
+    return extend_result;
 }
 
 // void memifo();

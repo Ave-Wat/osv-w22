@@ -5,6 +5,7 @@ int
 main()
 {
     int pid, ret;
+
     // create a child process, try allocate 11 pages of stack
     // stack limit should be 10 pages
     if ((pid = fork()) == 0) {

@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "errcode.h": "c"
+        "errcode.h": "c",
+        "proc.h": "c"
     }
 }
