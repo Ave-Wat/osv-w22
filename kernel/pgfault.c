@@ -53,12 +53,5 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         proc_exit(-1);
     }
     
-    if (user) {
-        // kprintf("fault addres %p, present %d, wrie %d, user %d\n", fault_addr, present, write, user);
-        proc_exit(-1);
-        panic("unreachable");
-    } else {
-        // kprintf("fault addr %p\n", fault_addr);
-        panic("Kernel error in page fault handler\n");
-    }
+    return;
 }
