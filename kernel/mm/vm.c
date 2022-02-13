@@ -255,11 +255,11 @@ found:
 err_t
 memregion_extend(struct memregion *region, ssize_t size, vaddr_t *old_bound)
 {
-    // check if extending the region would cause overlap with other region
-    struct memregion *overlapRegion = as_find_memregion(&(proc_current()->as), region->end + size, size);
-    if (overlapRegion){
-        return ERR_VM_BOUND;
-    }
+    //check if extending the region would cause overlap with other region
+    // struct memregion *overlapRegion = as_find_memregion(&(proc_current()->as), region->end + size, size);
+    // if (overlapRegion){
+    //     return ERR_VM_BOUND;
+    // }
 
     // if the ending address would be less than the starting address(due to size being negative)
     if ((region->end + size) < region->start){
