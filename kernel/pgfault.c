@@ -21,37 +21,37 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     // turn on interrupt now that we have the fault address 
     intr_set_level(INTR_ON);
 
-    // if there is a page protection issue, then exit process
-    if (present){
-        proc_exit(-1);
-    }
+    struct addrspace *as = &(proc_current()->as);
 
     // get memregion of fault_addr
-    struct memregion *region = as_find_memregion(&(proc_current()->as), fault_addr, pg_size);
+    struct memregion *region = as_find_memregion(as, fault_addr, 1);
     if (region == NULL){
         proc_exit(-1);
     }
 
-    // a write on a read only memory permission is not valid
-    if ((region->perm == MEMPERM_R || region->perm == MEMPERM_UR) && write){
+    // if there is a page protection issue
+    if (present){
+        // // a write on a read only memory permission is not valid
+        // if ((region->perm == MEMPERM_R || region->perm == MEMPERM_UR) && write){
+        //     proc_exit(-1);
+        // }
         proc_exit(-1);
     }
+    else{
+        // allocate physical page
+        paddr_t new_page_addr;
+        if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
+            proc_exit(-1);
+        }
 
-    // allocate physical page
-    paddr_t new_page_addr;
-    if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
-        proc_exit(-1);
+        // memset page to 0s
+        memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
+
+        //add new page to pagetable
+        err_t vpmap_status;
+        if ((vpmap_status = vpmap_map(as->vpmap, fault_addr, new_page_addr, 1, region->perm) == ERR_VPMAP_MAP)){
+            pmem_free(new_page_addr);
+            proc_exit(-1);
+        }
     }
-
-    // memset page to 0s
-    memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
-
-    //add new page to pagetable
-    err_t vpmap_status;
-    if ((vpmap_status = vpmap_map(proc_current()->as.vpmap, fault_addr, new_page_addr, 1, region->perm) == ERR_VPMAP_MAP)){
-        pmem_free(new_page_addr);
-        proc_exit(-1);
-    }
-    
-    return;
 }
