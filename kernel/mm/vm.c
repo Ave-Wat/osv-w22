@@ -259,10 +259,10 @@ memregion_extend(struct memregion *region, ssize_t size, vaddr_t *old_bound)
     if ((region->end + size) < region->start){
         return ERR_VM_INVALID;
     }
-
+    // store old bound
     *old_bound = region->end;
-    region->end = region->end + size;
 
+    // check for overlapping regions
     List *list = &region->as->regions;
     for (Node *n = list_begin(list); n != list_end(list); n = list_next(n)) {
         struct memregion *cur = list_entry(n, struct memregion, as_node);
@@ -270,6 +270,9 @@ memregion_extend(struct memregion *region, ssize_t size, vaddr_t *old_bound)
             return ERR_VM_BOUND;
         }
     }
+
+    // increment end of region
+    region->end = region->end + size;
 
     return ERR_OK;
 }

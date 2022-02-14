@@ -29,12 +29,8 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         proc_exit(-1);
     }
 
-    // if there is a page protection issue
+    // if there is a page protection issue, exit
     if (present){
-        // // a write on a read only memory permission is not valid
-        // if ((region->perm == MEMPERM_R || region->perm == MEMPERM_UR) && write){
-        //     proc_exit(-1);
-        // }
         proc_exit(-1);
     }
     else{
@@ -54,4 +50,5 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
             proc_exit(-1);
         }
     }
+    return;
 }
