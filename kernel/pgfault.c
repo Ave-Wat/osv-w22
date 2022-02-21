@@ -49,6 +49,20 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
             pmem_free(new_page_addr);
             proc_exit(-1);
         }
+
+        if(region->perm == MEMPERM_R){
+            //copy original to newly created page
+            vpmap_copy(as->vpmap, kmap_p2v(new_page_addr), fault_addr, kmap_p2v(new_page_addr), pg_round_up(region->end - region->start)/pg_size, MEMPERM_RW);
+            
+            // set perm of original to read/write
+            vpmap_set_perm(as->vpmap, fault_addr, pg_round_up(region->end - region->start)/pg_size, MEMPERM_RW);
+            
+            // decrement the page count of the original
+            paddr_t *src_paddr;
+            swapid_t *swp;
+            vpmap_lookup_vaddr(as->vpmap, pg_round_down(fault_addr), src_paddr, swp);
+            pmem_dec_refcnt(&src_paddr);
+        }
     }
     return;
 }

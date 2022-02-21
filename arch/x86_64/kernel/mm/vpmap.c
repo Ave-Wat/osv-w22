@@ -355,6 +355,7 @@ vpmap_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vadd
         memcpy((void*)KMAP_P2V(paddr), (void*)KMAP_P2V(PTE_ADDR(*src_pte)), pg_size);
         *dst_pte = PPN(paddr) | PTE_P | perm;
     }
+    
     return ERR_OK;
 }
 
@@ -363,28 +364,12 @@ vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, 
     kassert(srcvpmap && dstvpmap);
     pte_t *src_pte, *dst_pte;
     pteperm_t perm = memperm_to_pteperm(memperm);
-    size_t i;
-
-    srcaddr = pg_round_down(srcaddr);
-    dstaddr = pg_round_down(dstaddr);
-    for (i = 0; i < n; i++, srcaddr += pg_size, dstaddr += pg_size) {
-        if ((src_pte = find_pte(srcvpmap->pml4, srcaddr, 0)) == NULL ||
-            PPN(*src_pte) == 0) {
-            continue;
-        }
-        if ((dst_pte = find_pte(dstvpmap->pml4, dstaddr, 1)) == NULL ||
-            PPN(*dst_pte) != 0) {
-            // Return an error if address already mapped
-            return ERR_VPMAP_MAP;
-        }
-        err_t err;
-        paddr_t paddr;
-        if ((err = pmem_alloc(&paddr)) != ERR_OK) {
-            return err;
-        }
-        memcpy((void*)KMAP_P2V(paddr), (void*)KMAP_P2V(PTE_ADDR(*src_pte)), pg_size);
-        *dst_pte = PPN(paddr) | PTE_P | perm;
-    }
+    
+    vpmap_set_perm(srcvpmap, srcaddr, n, MEMPERM_R);
+    // possibly don't use vpamp_copy; may need to copy code and adjust it
+    vpmap_copy(srcvpmap, dstvpmap, srcaddr, dstaddr, n, memperm);
+    // note, need to use bitwise operations to set bits of entry corresponding to PTE_W to 0
+    // pmem_inc_refcnt(, 1);
     return ERR_OK;
 }
 
