@@ -409,12 +409,13 @@ memregion_copy_internal(struct addrspace *as, struct memregion *src, vaddr_t add
     if ((dst = memregion_map_internal(as, addr, src->end - src->start, 
             src->perm, src->store, src->ofs, src->shared)) != NULL) {
         // hard copy over everything
-        if (vpmap_copy(src->as->vpmap, as->vpmap, src->start, addr,
+        if (vpmap_cow_copy(src->as->vpmap, as->vpmap, src->start, addr,
              pg_round_up(src->end - src->start)/pg_size, src->perm) != ERR_OK) {
             memregion_unmap_internal(dst);
             return NULL;
         }
     }
+    vpmap_flush_tlb();
     return dst;
 }
 
