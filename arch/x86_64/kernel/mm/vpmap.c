@@ -360,16 +360,34 @@ vpmap_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vadd
 }
 
 err_t
-vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vaddr_t dstaddr, size_t n, memperm_t memperm){
+vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vaddr_t dstaddr, size_t n, struct memregion *region){
     kassert(srcvpmap && dstvpmap);
     pte_t *src_pte, *dst_pte;
-    pteperm_t perm = memperm_to_pteperm(memperm);
+    size_t i;
+
+    srcaddr = pg_round_down(srcaddr);
+    dstaddr = pg_round_down(dstaddr);
     
-    vpmap_set_perm(srcvpmap, srcaddr, n, MEMPERM_R);
-    // possibly don't use vpamp_copy; may need to copy code and adjust it
-    vpmap_copy(srcvpmap, dstvpmap, srcaddr, dstaddr, n, memperm);
-    // note, need to use bitwise operations to set bits of entry corresponding to PTE_W to 0
-    // pmem_inc_refcnt(, 1);
+    for (i = 0; i < n; i++, srcaddr += pg_size, dstaddr += pg_size) {
+        // skip iteration if page table entry not found within parent's page table
+        if ((src_pte = find_pte(srcvpmap->pml4, srcaddr, 0)) == NULL || PPN(*src_pte) == 0) {
+            continue;
+        }
+        // Check if address is already mapped within child's page table. If so, return an error
+        if ((dst_pte = find_pte(dstvpmap->pml4, dstaddr, 1)) == NULL || PPN(*dst_pte) != 0) {
+            return ERR_VPMAP_MAP;
+        }
+        
+        // set page table entry in parent's page table to be read-only
+        pteperm_t perm = PTE_W >> 2;
+        *src_pte = PPN(srcaddr) | PTE_P | perm;
+
+        // set child's page table entry to point to same as parent's
+        *dst_pte = *src_pte;
+
+        // increment reference count for physical page(use PTE_ADDR())
+        pmem_inc_refcnt(PPN(src_pte), 1);
+    }
     return ERR_OK;
 }
 

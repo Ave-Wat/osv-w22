@@ -58,6 +58,7 @@ void vpmap_destroy(struct vpmap *vpmap);
  */
 err_t vpmap_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vaddr_t dstaddr, size_t n, memperm_t memperm);
 
+err_t vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vaddr_t dstaddr, size_t n, struct memregion *region);
 /*
  * Copy mapping of first level entries from kernel vpmap to dst vpmap. Permission is perserved.
  * Return ERR_VPMAP_MAP if failed to map pages in dstvpmap
