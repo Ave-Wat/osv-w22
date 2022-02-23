@@ -360,7 +360,7 @@ vpmap_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vadd
 }
 
 err_t
-vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vaddr_t dstaddr, size_t n, struct memregion *region){
+vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, vaddr_t dstaddr, size_t n){
     kassert(srcvpmap && dstvpmap);
     pte_t *src_pte, *dst_pte;
     size_t i;
@@ -378,9 +378,8 @@ vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, 
             return ERR_VPMAP_MAP;
         }
         
-        // set page table entry in parent's page table to be read-only
-        pteperm_t perm = PTE_W >> 2;
-        *src_pte = PPN(srcaddr) | PTE_P | perm;
+        // set page table entry in parent's page table to be read-only by zeroing 2nd bit by and'ing with a mask
+        *src_pte = ~(1 << 1) & *src_pte;
 
         // set child's page table entry to point to same as parent's
         *dst_pte = *src_pte;
