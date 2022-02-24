@@ -32,30 +32,29 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     // if there is a page protection issue, exit
     if (present){
         if (write){
-            if(region->perm == MEMPERM_R || region->perm == MEMPERM_URW){
-                // optional 
-                // if the reference count for the page is 1, change the permissions of that page to read/write and return
-
-                // getting physical address of fault address
+            // if permission of current memregion is read/write, we know it's a copy-on-write page
+            if(region->perm == MEMPERM_URW){
                 paddr_t src_paddr;
                 swapid_t swp;
-                vpmap_lookup_vaddr(as->vpmap, pg_round_down(fault_addr), &src_paddr, &swp);
-
+                
                 // allocate physical page
                 paddr_t new_page_addr;
                 if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
                     proc_exit(-1);
                 }
+                
                 //copy original to newly created page
-                memcpy((void*)KMAP_P2V(new_page_addr), (void*)KMAP_P2V(PTE_ADDR(src_paddr)), pg_size);
+                memcpy((void*)KMAP_P2V(new_page_addr), (void*)pg_round_down(fault_addr), pg_size);
 
-                // set perm of original to read/write
-                vpmap_set_perm(as->vpmap, fault_addr, pg_round_up(region->end - region->start)/pg_size, MEMPERM_RW);
+                // set perm of new page to read/write
+                vpmap_set_perm(as->vpmap, kmap_p2v(new_page_addr), pg_size, MEMPERM_URW);
 
-                vpmap_map(as->vpmap, fault_addr, new_page_addr, 1, region->perm);
-
-                // decrement the page count of the original
+                // get physical address of fault address and then decrement page count
+                vpmap_lookup_vaddr(as->vpmap, pg_round_down(fault_addr), &src_paddr, &swp);
                 pmem_dec_refcnt(src_paddr);
+
+                // map to new physical page
+                vpmap_map(as->vpmap, fault_addr, new_page_addr, 1, MEMPERM_URW);                
             }            
             return;
         }

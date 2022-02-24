@@ -385,7 +385,7 @@ vpmap_cow_copy(struct vpmap *srcvpmap, struct vpmap *dstvpmap, vaddr_t srcaddr, 
         *dst_pte = *src_pte;
 
         // increment reference count for physical page(use PTE_ADDR())
-        pmem_inc_refcnt(PPN(src_pte), 1);
+        pmem_inc_refcnt(PPN(*src_pte), 1);
     }
     return ERR_OK;
 }
