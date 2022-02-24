@@ -32,7 +32,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     // if there is a page protection issue, exit
     if (present){
         if (write){
-            if(region->perm == MEMPERM_R){
+            if(region->perm == MEMPERM_R || region->perm == MEMPERM_URW){
                 // optional 
                 // if the reference count for the page is 1, change the permissions of that page to read/write and return
 
@@ -51,7 +51,9 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
 
                 // set perm of original to read/write
                 vpmap_set_perm(as->vpmap, fault_addr, pg_round_up(region->end - region->start)/pg_size, MEMPERM_RW);
-                
+
+                vpmap_map(as->vpmap, fault_addr, new_page_addr, 1, region->perm);
+
                 // decrement the page count of the original
                 pmem_dec_refcnt(src_paddr);
             }            
