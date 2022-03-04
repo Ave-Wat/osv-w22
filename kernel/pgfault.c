@@ -5,6 +5,7 @@
 #include <lib/string.h>
 #include <kernel/vpmap.h>
 #include <lib/errcode.h>
+#include <kernel/fs.h>
 
 size_t user_pgfault = 0;
 

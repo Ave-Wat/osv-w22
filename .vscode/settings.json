@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "errcode.h": "c",
-        "proc.h": "c"
+        "proc.h": "c",
+        "pmem.h": "c"
     }
 }

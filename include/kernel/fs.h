@@ -8,6 +8,8 @@
 #include <kernel/list.h>
 #include <kernel/radix_tree.h>
 
+struct file *swpfile;
+int last_swp_idx;
 /*
  * File system interface
  */
