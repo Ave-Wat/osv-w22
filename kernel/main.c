@@ -15,17 +15,16 @@
 
 int kernel_init(void *args);
 
-
-
 int
 kernel_init(void *args)
 {
     bdev_init();
     fs_init();
-    /*initialize swapspace*/
+
+    // initialize swapspace
     err_t swp_err = fs_open_file("/swp", FS_RDWR | FS_CREAT, 0, &swpfile);
-    kprintf("%i", swp_err);
     last_swp_idx = 0;
+
     mp_start_ap();
     kprintf("OSV initialization...Done\n\n");
 
