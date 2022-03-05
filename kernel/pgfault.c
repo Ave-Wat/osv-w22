@@ -6,8 +6,10 @@
 #include <kernel/vpmap.h>
 #include <lib/errcode.h>
 #include <kernel/fs.h>
+#include <kernel/pmem.h>
 
 size_t user_pgfault = 0;
+List allocated_page_list; // List that holds physical addresses of pages that are allocated in physical memory
 
 void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
@@ -68,6 +70,27 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         paddr_t new_page_addr;
         if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
             proc_exit(-1);
+        
+            /////////////////////////////////////////////////////////////////////////
+            // no available page, so must perform swap procedure:
+
+            // find a page to "evict": a currently allocated physical page within allocated page list
+            Node* head = list_begin(&allocated_page_list);
+            struct page* evicted_page = list_entry(head, struct page, node);
+
+            // TODO write page to the swap space
+            fs_write_file();
+
+            // give page to current process
+            new_page_addr = page_to_paddr(evicted_page); 
+
+            // remove head of list and reappend to the end to maintain LRU status
+            list_remove(head);
+            list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
+        }
+        else{
+            // there is an available page, so simply add newly allocated page to allocated page list
+            list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
         }
 
         // memset page to 0s
