@@ -32,7 +32,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         proc_exit(-1);
     }
 
-    // if there is a page protection issue, exit
+    // if there is a page protection issue
     if (present){
         if (write){
             // if permission of current memregion is read/write, we know it's a copy-on-write page
@@ -65,6 +65,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
             proc_exit(-1);
         }
     }
+    // no page protection issue
     else{
         // allocate physical page
         paddr_t new_page_addr;
@@ -77,14 +78,20 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
             // find a page to "evict": a currently allocated physical page within allocated page list
             Node* head = list_begin(&allocated_page_list);
             struct page* evicted_page = list_entry(head, struct page, node);
+            vaddr_t* evicted_vaddr = kmap_p2v(page_to_paddr(evicted_page));
 
-            // TODO write page to the swap space
-            fs_write_file();
+            // modify page table entry to indicate that page is no longer present in memory
+            pte_t* page_table_entry = find_pte(evicted_vaddr);
+            *page_table_entry = ~(1) & *page_table_entry;
+            
+            // write page to the swap space
+            fs_write_file(swpfile, pg_round_down(evicted_vaddr), 1, last_swp_idx * pg_size);
+            last_swp_idx++;
 
             // give page to current process
             new_page_addr = page_to_paddr(evicted_page); 
 
-            // remove head of list and reappend to the end to maintain LRU status
+            // remove head of list and append to the end to maintain LRU status
             list_remove(head);
             list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
         }
