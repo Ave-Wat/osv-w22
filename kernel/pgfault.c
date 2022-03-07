@@ -32,6 +32,14 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         proc_exit(-1);
     }
 
+
+    pte_t* page_table_entry = find_pte(fault_addr);
+    // check if the "present in memory" bit is set. If not, 
+    if ((*page_table_entry & 1) == 0){
+        // pmem_alloc_or_evict()
+        // fs_read_file()
+    }
+
     // if there is a page protection issue
     if (present){
         if (write){
@@ -70,7 +78,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         // allocate physical page
         paddr_t new_page_addr;
         if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
-            proc_exit(-1);
+            // proc_exit(-1);
         
             /////////////////////////////////////////////////////////////////////////
             // no available page, so must perform swap procedure:
@@ -83,12 +91,15 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
             // modify page table entry to indicate that page is no longer present in memory
             pte_t* page_table_entry = find_pte(evicted_vaddr);
             *page_table_entry = ~(1) & *page_table_entry;
-            
-            // write page to the swap space
+
+            // puts index into the 12-47 bits of page table entry
+            *page_table_entry = *page_table_entry & ~(PHYS_ADDR_MASK) | (last_swp_idx << 12);
+
+            // write evicted page to the swap space
             fs_write_file(swpfile, pg_round_down(evicted_vaddr), 1, last_swp_idx * pg_size);
             last_swp_idx++;
 
-            // give page to current process
+            // give evicted page to current process
             new_page_addr = page_to_paddr(evicted_page); 
 
             // remove head of list and append to the end to maintain LRU status
