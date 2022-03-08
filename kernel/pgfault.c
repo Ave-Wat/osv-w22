@@ -11,6 +11,43 @@
 size_t user_pgfault = 0;
 List allocated_page_list; // List that holds physical addresses of pages that are allocated in physical memory
 
+void pmem_alloc_or_evict(paddr_t *new_page_addr){
+    if (pmem_alloc(new_page_addr) == ERR_NOMEM){
+        // no available page, so must perform swap procedure:
+
+        // find a page to "evict": a currently allocated physical page within allocated page list
+        Node* head = list_begin(&allocated_page_list);
+        struct page* evicted_page = list_entry(head, struct page, node);
+        vaddr_t* evicted_vaddr = kmap_p2v(page_to_paddr(evicted_page));
+
+        // modify page table entry to indicate that page is swapped to disk
+        struct proc* cur_process = proc_current();
+        pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, evicted_vaddr, 0);
+        *page_table_entry = ~(PTE_DISK) & *page_table_entry;
+
+        // puts index into the 12-47 bits of page table entry
+        *page_table_entry = *page_table_entry & ~(PHYS_ADDR_MASK) | (last_swp_idx << 12);
+
+        // write evicted page to the swap space
+        ssize_t result;
+        if (result = fs_write_file(swpfile, pg_round_down(evicted_vaddr), 1, last_swp_idx * pg_size) == -1){
+            panic("NO DATA WRITTEN");
+        }
+        last_swp_idx++;
+
+        // give evicted page to current process
+        new_page_addr = page_to_paddr(evicted_page); 
+
+        // remove head of list and append to the end to maintain LRU status
+        list_remove(head);
+        list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
+    }
+    else{
+        // there is an available page, so simply add newly allocated page to allocated page list
+        list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
+    }
+}
+
 void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     
@@ -32,12 +69,16 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         proc_exit(-1);
     }
 
+    struct proc* cur_process = proc_current();
+    pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, fault_addr, 0);
 
-    pte_t* page_table_entry = find_pte(fault_addr);
-    // check if the "present in memory" bit is set. If not, 
-    if ((*page_table_entry & 1) == 0){
-        // pmem_alloc_or_evict()
-        // fs_read_file()
+    // check if the "swapped to disk" bit is set.  
+    if ((*page_table_entry & PTE_DISK) == PTE_DISK){
+        paddr_t new_page_addr;
+        pmem_alloc_or_evict(&new_page_addr);
+        // get index by masking to get phys address, and then right shifting 
+        offset_t index = (*page_table_entry & ~(PHYS_ADDR_MASK)) >> 12;
+        fs_read_file(swpfile, (void *) new_page_addr, pg_size, index);
     }
 
     // if there is a page protection issue
@@ -50,10 +91,8 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
                 
                 // allocate physical page
                 paddr_t new_page_addr;
-                if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
-                    proc_exit(-1);
-                }
-                
+                pmem_alloc_or_evict(&new_page_addr);
+            
                 //copy original to newly created page
                 memcpy((void*)KMAP_P2V(new_page_addr), (void*)pg_round_down(fault_addr), pg_size);
 
@@ -77,39 +116,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     else{
         // allocate physical page
         paddr_t new_page_addr;
-        if (pmem_alloc(&new_page_addr) == ERR_NOMEM){
-            // proc_exit(-1);
-        
-            /////////////////////////////////////////////////////////////////////////
-            // no available page, so must perform swap procedure:
-
-            // find a page to "evict": a currently allocated physical page within allocated page list
-            Node* head = list_begin(&allocated_page_list);
-            struct page* evicted_page = list_entry(head, struct page, node);
-            vaddr_t* evicted_vaddr = kmap_p2v(page_to_paddr(evicted_page));
-
-            // modify page table entry to indicate that page is no longer present in memory
-            pte_t* page_table_entry = find_pte(evicted_vaddr);
-            *page_table_entry = ~(1) & *page_table_entry;
-
-            // puts index into the 12-47 bits of page table entry
-            *page_table_entry = *page_table_entry & ~(PHYS_ADDR_MASK) | (last_swp_idx << 12);
-
-            // write evicted page to the swap space
-            fs_write_file(swpfile, pg_round_down(evicted_vaddr), 1, last_swp_idx * pg_size);
-            last_swp_idx++;
-
-            // give evicted page to current process
-            new_page_addr = page_to_paddr(evicted_page); 
-
-            // remove head of list and append to the end to maintain LRU status
-            list_remove(head);
-            list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
-        }
-        else{
-            // there is an available page, so simply add newly allocated page to allocated page list
-            list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
-        }
+        pmem_alloc_or_evict(&new_page_addr);
 
         // memset page to 0s
         memset((void*) kmap_p2v(new_page_addr), 0, pg_size);

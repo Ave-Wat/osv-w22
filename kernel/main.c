@@ -22,7 +22,10 @@ kernel_init(void *args)
     fs_init();
 
     // initialize swapspace
-    err_t swp_err = fs_open_file("/swp", FS_RDWR | FS_CREAT, 0, &swpfile);
+    err_t swp_err;
+    if (swp_err = fs_open_file("/swp", FS_RDWR | FS_CREAT, 0, &swpfile) != ERR_OK){
+        panic("ERROR OPENING SWAP FILE");
+    }
     last_swp_idx = 0;
 
     mp_start_ap();

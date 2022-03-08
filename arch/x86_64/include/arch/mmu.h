@@ -174,6 +174,7 @@ struct gatedesc {
 #define PTE_D           0x040   // Dirty
 #define PTE_PS          0x080   // Page Size (4MB)
 #define PTE_MBZ         0x180   // Bits must be zero
+#define PTE_DISK        0x10000000000000   // Bits must be zero
 
 #ifndef __ASSEMBLER__
 
