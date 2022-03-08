@@ -9,12 +9,15 @@
 #include <kernel/pmem.h>
 
 size_t user_pgfault = 0;
-List allocated_page_list; // List that holds physical addresses of pages that are allocated in physical memory
+List allocated_page_list; // List that holds pages that are allocated in physical memory
+
+// swap operations lock
+struct spinlock swp_lock;
 
 void pmem_alloc_or_evict(paddr_t *new_page_addr){
+    spinlock_acquire(&swp_lock);
+    // no available page, so must perform swap procedure
     if (pmem_alloc(new_page_addr) == ERR_NOMEM){
-        // no available page, so must perform swap procedure:
-
         // find a page to "evict": a currently allocated physical page within allocated page list
         Node* head = list_begin(&allocated_page_list);
         struct page* evicted_page = list_entry(head, struct page, node);
@@ -23,7 +26,8 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         // modify page table entry to indicate that page is swapped to disk
         struct proc* cur_process = proc_current();
         pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, evicted_vaddr, 0);
-        *page_table_entry = ~(PTE_DISK) & *page_table_entry;
+        *page_table_entry = ~(1) & *page_table_entry; // set present bit to 0
+        *page_table_entry = ~(PTE_DISK) & *page_table_entry; // set "swapped to disk" bit to 0
 
         // puts index into the 12-47 bits of page table entry
         *page_table_entry = *page_table_entry & ~(PHYS_ADDR_MASK) | (last_swp_idx << 12);
@@ -46,10 +50,14 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         // there is an available page, so simply add newly allocated page to allocated page list
         list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
     }
+    spinlock_acquire(&swp_lock);
+    return;
 }
 
 void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
+    list_init(&allocated_page_list);
+    spinlock_init(&swp_lock);
     
     if (user) {
         __sync_add_and_fetch(&user_pgfault, 1);
@@ -75,14 +83,19 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     // check if the "swapped to disk" bit is set.  
     if ((*page_table_entry & PTE_DISK) == PTE_DISK){
         paddr_t new_page_addr;
-        pmem_alloc_or_evict(&new_page_addr);
-        // get index by masking to get phys address, and then right shifting 
-        offset_t index = (*page_table_entry & ~(PHYS_ADDR_MASK)) >> 12;
-        fs_read_file(swpfile, (void *) new_page_addr, pg_size, index);
-    }
 
+        // get a physical page to write data back into
+        pmem_alloc_or_evict(&new_page_addr);
+
+        // get index by masking to get phys address and right shifting 
+        offset_t index = (*page_table_entry & PHYS_ADDR_MASK) >> 12;
+        ssize_t result;
+        if (result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, index * pg_size) == -1){
+            panic("NO DATA READ");
+        }
+    }
     // if there is a page protection issue
-    if (present){
+    else if (present){
         if (write){
             // if permission of current memregion is read/write, we know it's a copy-on-write page
             if(region->perm == MEMPERM_URW){
