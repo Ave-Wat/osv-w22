@@ -9,8 +9,22 @@
 int
 main()
 {
-    int page_count = 0;
+    int pid, ret, i;
+    size_t PAGES = 0;
+    volatile char *a = sbrk(PAGES * 4096);
 
-    // could add pages to the memory
-    // could increase the size of the current process (using sys_sbrk) to fill the memory and then add pages
+    // allocate PAGES pages on the heap, page them in; some pages will be on disk
+    for (i = 0; i < PAGES; i++) {
+        a[i * 4096] = i;
+    }
+
+    // read pages; since starting from zero, the early pages won't be in memory (have to pull from disk)
+    // This tests whether we are correctly allocating and reading pages
+    for (i = 0; i < PAGES; i++) {
+        if (a[i * 4096] != i){
+            error("reading pages caused error: unexpected page value");
+        }
+    }
+    pass("swp-low-mem");
+    exit(0);
 }

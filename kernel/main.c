@@ -21,6 +21,13 @@ kernel_init(void *args)
     bdev_init();
     fs_init();
 
+    mp_start_ap();
+    kprintf("OSV initialization...Done\n\n");
+
+    // spawn initial process - init
+    char* argv[2] = {"init", NULL};
+    kassert(proc_spawn("init", argv, &init_proc) == ERR_OK);
+
     // initialize swapspace
     err_t swp_err;
     if (swp_err = fs_open_file("/swp", FS_RDWR | FS_CREAT, 0, &swpfile) != ERR_OK){
@@ -28,12 +35,6 @@ kernel_init(void *args)
     }
     last_swp_idx = 0;
 
-    mp_start_ap();
-    kprintf("OSV initialization...Done\n\n");
-
-    // spawn initial process - init
-    char* argv[2] = {"init", NULL};
-    kassert(proc_spawn("init", argv, &init_proc) == ERR_OK);
     return 0;
 }
 

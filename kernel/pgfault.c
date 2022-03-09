@@ -10,6 +10,7 @@
 
 size_t user_pgfault = 0;
 List allocated_page_list; // List that holds pages that are allocated in physical memory
+bool initialized = False;
 
 // swap operations lock
 struct spinlock swp_lock;
@@ -56,8 +57,12 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
 
 void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
-    list_init(&allocated_page_list);
-    spinlock_init(&swp_lock);
+    if (!initialized){
+        // could also put this in kernel_init()
+        list_init(&allocated_page_list);
+        spinlock_init(&swp_lock);
+    }
+    
     
     if (user) {
         __sync_add_and_fetch(&user_pgfault, 1);

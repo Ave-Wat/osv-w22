@@ -1,0 +1,9 @@
+#include <lib/test.h>
+#include <lib/stddef.h>
+
+int
+main()
+{
+    pass("swp-write-disk");
+    exit(0);
+}
