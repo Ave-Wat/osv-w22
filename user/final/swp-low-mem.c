@@ -10,12 +10,13 @@ int
 main()
 {
     int pid, ret, i;
-    size_t PAGES = 0;
-    volatile char *a = sbrk(PAGES * 4096);
+    size_t PAGES = 20;
+    // reserves space to allocate pages
+    volatile char *a = sbrk(PAGES * 400);
 
     // allocate PAGES pages on the heap, page them in; some pages will be on disk
     for (i = 0; i < PAGES; i++) {
-        a[i * 4096] = i;
+        a[i * 400] = i;
     }
 
     // read pages; since starting from zero, the early pages won't be in memory (have to pull from disk)

@@ -22,7 +22,7 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         // find a page to "evict": a currently allocated physical page within allocated page list
         Node* head = list_begin(&allocated_page_list);
         struct page* evicted_page = list_entry(head, struct page, node);
-        vaddr_t* evicted_vaddr = kmap_p2v(page_to_paddr(evicted_page));
+        vaddr_t evicted_vaddr = kmap_p2v(page_to_paddr(evicted_page));
 
         // modify page table entry to indicate that page is swapped to disk
         struct proc* cur_process = proc_current();
@@ -31,25 +31,27 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         *page_table_entry = ~(PTE_DISK) & *page_table_entry; // set "swapped to disk" bit to 0
 
         // puts index into the 12-47 bits of page table entry
-        *page_table_entry = *page_table_entry & ~(PHYS_ADDR_MASK) | (last_swp_idx << 12);
+        *page_table_entry = (*page_table_entry & ~(PHYS_ADDR_MASK)) | (last_swp_idx << 12);
 
         // write evicted page to the swap space
         ssize_t result;
-        if (result = fs_write_file(swpfile, pg_round_down(evicted_vaddr), 1, last_swp_idx * pg_size) == -1){
+        offset_t ofs = (last_swp_idx * pg_size);
+        if ((result = fs_write_file(swpfile, ((vaddr_t *)pg_round_down(evicted_vaddr)), 1, &ofs)) == -1){
             panic("NO DATA WRITTEN");
         }
         last_swp_idx++;
 
         // give evicted page to current process
-        new_page_addr = page_to_paddr(evicted_page); 
+        paddr_t new_pg_temp = page_to_paddr(evicted_page); 
+        new_page_addr = &new_pg_temp;
 
         // remove head of list and append to the end to maintain LRU status
         list_remove(head);
-        list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
+        list_append(&allocated_page_list, &paddr_to_page(*new_page_addr)->node);
     }
     else{
         // there is an available page, so simply add newly allocated page to allocated page list
-        list_append(&allocated_page_list, &paddr_to_page(new_page_addr)->node);
+        list_append(&allocated_page_list, &paddr_to_page(*new_page_addr)->node);
     }
     spinlock_acquire(&swp_lock);
     return;
@@ -61,6 +63,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         // could also put this in kernel_init()
         list_init(&allocated_page_list);
         spinlock_init(&swp_lock);
+        initialized = True;
     }
     
     
@@ -95,7 +98,8 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         // get index by masking to get phys address and right shifting 
         offset_t index = (*page_table_entry & PHYS_ADDR_MASK) >> 12;
         ssize_t result;
-        if (result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, index * pg_size) == -1){
+        offset_t ofs = index * pg_size;
+        if ((result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, &ofs)) == -1){
             panic("NO DATA READ");
         }
     }

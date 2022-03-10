@@ -3,6 +3,7 @@
         "errcode.h": "c",
         "proc.h": "c",
         "pmem.h": "c",
-        "bdev.h": "c"
+        "bdev.h": "c",
+        "vpmap.h": "c"
     }
 }
