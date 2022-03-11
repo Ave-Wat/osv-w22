@@ -24,6 +24,8 @@ main()
     // This tests whether we are correctly allocating and reading pages
     for (i = 0; i < PAGES; i++) {
         if (a[i * 4096] != i){
+            printf("i: %d \n", i);
+            printf("a[i * 4096]: %d \n", a[i * 4096]);
             error("reading pages caused error: unexpected page value");
         }
     }

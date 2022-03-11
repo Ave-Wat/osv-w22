@@ -31,27 +31,27 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         vaddr_t evicted_vaddr = kmap_p2v(evicted_paddr);
 
         // modify page table entry to indicate that page is swapped to disk
-        struct proc* cur_process = proc_current();
-        pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, evicted_vaddr, 0);
-        *page_table_entry = ~(1) & *page_table_entry; // set present bit to 0
-        *page_table_entry = ~(PTE_DISK) & *page_table_entry; // set "swapped to disk" bit to 0
+        // struct proc* cur_process = proc_current();
+        // pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, evicted_vaddr, 0);
+        // *page_table_entry = ~(1) & *page_table_entry; // set present bit to 0
+        // *page_table_entry = ~(PTE_DISK) & *page_table_entry; // set "swapped to disk" bit to 0
 
-        // puts index into the 12-47 bits of page table entry
-        *page_table_entry = (*page_table_entry & ~(PHYS_ADDR_MASK)) | (last_swp_idx << 12);
+        // // puts index into the 12-47 bits of page table entry
+        // *page_table_entry = (*page_table_entry & ~(PHYS_ADDR_MASK)) | (last_swp_idx << 12);
 
         // write evicted page to the swap space
-        //ssize_t result;
-        // offset_t ofs = last_swp_idx * pg_size;
+        ssize_t result;
+        offset_t ofs = last_swp_idx * pg_size;
 
         // kprintf("swpfile: %p \n", swpfile);
         // kprintf("evicted_vaddr: %p \n", evicted_vaddr);
         // kprintf("evicted_paddr: %p \n", evicted_paddr);
         // kprintf("ofs: %d \n", ofs);
 
-        // if ((result = fs_write_file(swpfile, (void*) evicted_vaddr, (size_t) pg_size, (offset_t*) &ofs)) == -1){
-        //     panic("NO DATA WRITTEN TO DISK");
-        // }
-        // last_swp_idx++;
+        if ((result = fs_write_file(swpfile, (void*) evicted_vaddr, (size_t) pg_size, (offset_t*) &ofs)) == -1){
+            panic("NO DATA WRITTEN TO DISK");
+        }
+        last_swp_idx++;
         
         // // give evicted page to current process
         pmem_free(evicted_paddr);
