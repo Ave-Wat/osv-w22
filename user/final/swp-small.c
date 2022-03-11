@@ -10,14 +10,14 @@ int
 main()
 {
     int i;
-    size_t PAGES = 1;
+    size_t PAGES = 400;
     // reserves space to allocate pages
     volatile char *a = sbrk(PAGES * 4096);
 
     // allocate PAGES pages on the heap, page them in; some pages will be on disk
     for (i = 0; i < PAGES; i++) {
-        printf("%d \n", i);
         a[i * 4096] = i;
+        printf("%d \n", i);
     }
 
     // read pages; since starting from zero, the early pages won't be in memory (have to pull from disk)

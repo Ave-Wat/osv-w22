@@ -4,6 +4,7 @@
         "proc.h": "c",
         "pmem.h": "c",
         "bdev.h": "c",
-        "vpmap.h": "c"
+        "vpmap.h": "c",
+        "test.h": "c"
     }
 }

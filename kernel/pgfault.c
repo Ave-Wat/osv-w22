@@ -25,6 +25,10 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         struct page* evicted_page = list_entry(head, struct page, node);
         vaddr_t evicted_vaddr = kmap_p2v(page_to_paddr(evicted_page));
 
+        // give evicted page to current process
+        paddr_t new_pg_temp = page_to_paddr(evicted_page); 
+        *new_page_addr = new_pg_temp;
+
         // modify page table entry to indicate that page is swapped to disk
         struct proc* cur_process = proc_current();
         pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, evicted_vaddr, 0);
@@ -38,13 +42,9 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         ssize_t result;
         offset_t ofs = (last_swp_idx * pg_size);
         if ((result = fs_write_file(swpfile, ((vaddr_t *)pg_round_down(evicted_vaddr)), 1, &ofs)) == -1){
-            panic("NO DATA WRITTEN");
+            panic("NO DATA WRITTEN TO DISK");
         }
         last_swp_idx++;
-
-        // give evicted page to current process
-        paddr_t new_pg_temp = page_to_paddr(evicted_page); 
-        new_page_addr = &new_pg_temp;
 
         // remove head of list and append to the end to maintain LRU status
         list_remove(head);
@@ -86,26 +86,27 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         proc_exit(-1);
     }
 
-    struct proc* cur_process = proc_current();
-    pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, fault_addr, 0);
+    // struct proc* cur_process = proc_current();
+    // pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, fault_addr, 0);
 
-    // check if the "swapped to disk" and "present" bit is set. If they're both 0, then we know that it's been swapped to disk.
-    if (!((*page_table_entry & PTE_DISK) == PTE_DISK) && !((*page_table_entry & 1) == 1)){
-        paddr_t new_page_addr;
+    // // check if the "swapped to disk" and "present" bit is set. If they're both 0, then we know that it's been swapped to disk.
+    // if (!((*page_table_entry & PTE_DISK) == PTE_DISK) && !((*page_table_entry & 1) == 1)){
+    //     paddr_t new_page_addr;
 
-        // get a physical page to write data back into
-        pmem_alloc_or_evict(&new_page_addr);
+    //     // get a physical page to write data back into
+    //     pmem_alloc_or_evict(&new_page_addr);
 
-        // get index by masking to get phys address and right shifting 
-        offset_t index = (*page_table_entry & PHYS_ADDR_MASK) >> 12;
-        ssize_t result;
-        offset_t ofs = index * pg_size;
-        if ((result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, &ofs)) == -1){
-            panic("NO DATA READ");
-        }
-    }
+    //     // get index by masking to get phys address and right shifting 
+    //     offset_t index = (*page_table_entry & PHYS_ADDR_MASK) >> 12;
+    //     ssize_t result;
+    //     offset_t ofs = index * pg_size;
+    //     if ((result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, &ofs)) == -1){
+    //         panic("NO DATA READ");
+    //     }
+    // }
+
     // if there is a page protection issue
-    else if (present){
+    if (present){
         if (write){
             // if permission of current memregion is read/write, we know it's a copy-on-write page
             if(region->perm == MEMPERM_URW){
@@ -115,6 +116,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
                 // allocate physical page
                 paddr_t new_page_addr;
                 pmem_alloc_or_evict(&new_page_addr);
+                kprintf("cow pmem_alloc_or_evict");
             
                 //copy original to newly created page
                 memcpy((void*)KMAP_P2V(new_page_addr), (void*)pg_round_down(fault_addr), pg_size);
