@@ -8,7 +8,6 @@
 #include <kernel/fs.h>
 #include <kernel/pmem.h>
 
-
 size_t user_pgfault = 0;
 List allocated_page_list; // List that holds pages that are allocated in physical memory
 bool initialized = False;
@@ -20,11 +19,10 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
     spinlock_acquire(&swp_lock);
     // no available page, so must perform swap procedure
     if (pmem_alloc(new_page_addr) == ERR_NOMEM){
-
-        for (Node *n = list_begin(&allocated_page_list); n != list_end(&allocated_page_list); n = list_next(n)) {
-            struct page *p = list_entry(n, struct page, node);
-            kprintf("page address: %p \n", page_to_paddr(p));
-        }
+        // for (Node *n = list_begin(&allocated_page_list); n != list_end(&allocated_page_list); n = list_next(n)) {
+        //     struct page *p = list_entry(n, struct page, node);
+        //     kprintf("page address: %p \n", page_to_paddr(p));
+        // }
 
         // find a page to "evict": a currently allocated physical page within allocated page list
         Node* head = list_begin(&allocated_page_list);
@@ -42,23 +40,19 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         *page_table_entry = (*page_table_entry & ~(PHYS_ADDR_MASK)) | (last_swp_idx << 12);
 
         // write evicted page to the swap space
-        ssize_t result;
-        offset_t ofs = last_swp_idx * pg_size;
+        //ssize_t result;
+        // offset_t ofs = last_swp_idx * pg_size;
 
-        kprintf("swpfile: %p \n", swpfile);
-        kprintf("evicted_vaddr: %p \n", evicted_vaddr);
-        kprintf("physical addr: %p \n", evicted_paddr);
-        kprintf("ofs: %d \n", ofs);
+        // kprintf("swpfile: %p \n", swpfile);
+        // kprintf("evicted_vaddr: %p \n", evicted_vaddr);
+        // kprintf("evicted_paddr: %p \n", evicted_paddr);
+        // kprintf("ofs: %d \n", ofs);
 
-        vaddr_t rounded_down_vaddr = pg_round_down(evicted_vaddr);
-
-        if ((result = fs_write_file(swpfile, ((void*) &rounded_down_vaddr), (size_t) pg_size, (offset_t*) &ofs)) == -1){
-            panic("NO DATA WRITTEN TO DISK");
-        }
-        last_swp_idx++;
+        // if ((result = fs_write_file(swpfile, (void*) evicted_vaddr, (size_t) pg_size, (offset_t*) &ofs)) == -1){
+        //     panic("NO DATA WRITTEN TO DISK");
+        // }
+        // last_swp_idx++;
         
-        kprintf("pmem_alloc_or_evict 4 \n");
-
         // // give evicted page to current process
         pmem_free(evicted_paddr);
         pmem_alloc(new_page_addr);
@@ -72,9 +66,8 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         // there is an available page, so simply add newly allocated page to allocated page list
         list_append(&allocated_page_list, &paddr_to_page(*new_page_addr)->node);
     }
-    kprintf("pmem_alloc_or_evict 6 \n");
     spinlock_release(&swp_lock);
-    kprintf("end of pmem_alloc_or_evict \n");
+    //kprintf("end of pmem_alloc_or_evict \n");
     return;
 }
 
@@ -82,7 +75,6 @@ void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     
     if (!initialized){
-        // could also put this in kernel_init()
         list_init(&allocated_page_list);
         spinlock_init(&swp_lock);
         initialized = True;
@@ -92,7 +84,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         __sync_add_and_fetch(&user_pgfault, 1);
     }
     else{
-        kprintf("fault_addr: %p \n", fault_addr);
+        kprintf("page fault handler: fault_addr: %p \n", fault_addr);
         panic("Kernel error in page fault handler \n");
     }
 
@@ -137,7 +129,6 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
                 // allocate physical page
                 paddr_t new_page_addr;
                 pmem_alloc_or_evict(&new_page_addr);
-                kprintf("cow pmem_alloc_or_evict");
             
                 //copy original to newly created page
                 memcpy((void*)KMAP_P2V(new_page_addr), (void*)pg_round_down(fault_addr), pg_size);
@@ -163,7 +154,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         // allocate physical page
         paddr_t new_page_addr;
         pmem_alloc_or_evict(&new_page_addr);
-        kprintf("%p \n", new_page_addr);
+        kprintf("page fault handler: new_page_addr: %p \n", new_page_addr);
 
         // memset page to 0s
         memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
