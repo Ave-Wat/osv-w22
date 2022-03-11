@@ -18,6 +18,9 @@
 
 // Kernel vpmap
 extern struct vpmap *kvpmap;
+
+pte_t *find_pte(pml4e_t *pml4, vaddr_t vaddr, int alloc);
+
 /*
  * vpmap initialization.
  */

@@ -20,7 +20,7 @@ static struct kmem_cache *vpmap_allocator = NULL;
  * Find the page table entry for virtual address ``vaddr``. If ``alloc`` is set,
  * allocate a page table if not present.
  */
-static pte_t *find_pte(pml4e_t *pml4, vaddr_t vaddr, int alloc);
+// pte_t *find_pte(pml4e_t *pml4, vaddr_t vaddr, int alloc);
 
 /*
  * Clear entry of a pte. Decrement page reference count if page present. Free
@@ -54,7 +54,7 @@ static void unmap_pd(pde_t *pde, vaddr_t start_addr, vaddr_t end_addr,
  */
 static pteperm_t memperm_to_pteperm(memperm_t memperm);
 
-static pte_t*
+pte_t*
 find_pte(pml4e_t *pml4, vaddr_t vaddr, int alloc)
 {
     kassert(pml4);

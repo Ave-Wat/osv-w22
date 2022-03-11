@@ -9,14 +9,15 @@
 int
 main()
 {
-    int pid, ret, i;
-    size_t PAGES = 20;
+    int i;
+    size_t PAGES = 1;
     // reserves space to allocate pages
-    volatile char *a = sbrk(PAGES * 400);
+    volatile char *a = sbrk(PAGES * 4096);
 
     // allocate PAGES pages on the heap, page them in; some pages will be on disk
     for (i = 0; i < PAGES; i++) {
-        a[i * 400] = i;
+        printf("%d \n", i);
+        a[i * 4096] = i;
     }
 
     // read pages; since starting from zero, the early pages won't be in memory (have to pull from disk)
@@ -26,6 +27,6 @@ main()
             error("reading pages caused error: unexpected page value");
         }
     }
-    pass("swp-low-mem");
+    pass("swp-small");
     exit(0);
 }

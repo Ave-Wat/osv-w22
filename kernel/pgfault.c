@@ -8,6 +8,7 @@
 #include <kernel/fs.h>
 #include <kernel/pmem.h>
 
+
 size_t user_pgfault = 0;
 List allocated_page_list; // List that holds pages that are allocated in physical memory
 bool initialized = False;
@@ -53,19 +54,19 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         // there is an available page, so simply add newly allocated page to allocated page list
         list_append(&allocated_page_list, &paddr_to_page(*new_page_addr)->node);
     }
-    spinlock_acquire(&swp_lock);
+    spinlock_release(&swp_lock);
     return;
 }
 
 void
 handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
+    
     if (!initialized){
         // could also put this in kernel_init()
         list_init(&allocated_page_list);
         spinlock_init(&swp_lock);
         initialized = True;
     }
-    
     
     if (user) {
         __sync_add_and_fetch(&user_pgfault, 1);
@@ -88,8 +89,8 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
     struct proc* cur_process = proc_current();
     pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, fault_addr, 0);
 
-    // check if the "swapped to disk" bit is set.  
-    if ((*page_table_entry & PTE_DISK) == PTE_DISK){
+    // check if the "swapped to disk" and "present" bit is set. If they're both 0, then we know that it's been swapped to disk.
+    if (!((*page_table_entry & PTE_DISK) == PTE_DISK) && !((*page_table_entry & 1) == 1)){
         paddr_t new_page_addr;
 
         // get a physical page to write data back into
