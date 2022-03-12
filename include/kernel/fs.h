@@ -10,6 +10,7 @@
 
 struct file *swpfile;
 int last_swp_idx;
+
 /*
  * File system interface
  */
