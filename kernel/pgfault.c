@@ -17,13 +17,15 @@ struct spinlock swp_lock;
 
 void pmem_alloc_or_evict(paddr_t *new_page_addr){
     spinlock_acquire(&swp_lock);
+    
     // no available page, so must perform swap procedure
     if (pmem_alloc(new_page_addr) == ERR_NOMEM){
-        // kprintf("PRINTING OUT allocated_page_list: \n");
-        // for (Node *n = list_begin(&allocated_page_list); n != list_end(&allocated_page_list); n = list_next(n)) {
-        //     struct page *p = list_entry(n, struct page, node);
-        //     kprintf("page_to_paddr(): %p \n", page_to_paddr(p));
-        // }
+        kprintf("\n");
+        kprintf("PRINTING OUT allocated_page_list: \n");
+        for (Node *n = list_begin(&allocated_page_list); n != list_end(&allocated_page_list); n = list_next(n)) {
+            struct page *p = list_entry(n, struct page, node);
+            kprintf("page_to_paddr(): %p \n", page_to_paddr(p));
+        }
 
         // find a page to "evict": a currently allocated physical page within allocated page list
         Node* head = list_begin(&allocated_page_list);
@@ -35,7 +37,7 @@ void pmem_alloc_or_evict(paddr_t *new_page_addr){
         // struct proc* cur_process = proc_current();
         // pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, evicted_vaddr, 0);
         // *page_table_entry = ~(1) & *page_table_entry; // set present bit to 0
-        // *page_table_entry = ~(PTE_DISK) & *page_table_entry; // set "swapped to disk" bit to 0
+        // *page_table_entry = PTE_DISK | *page_table_entry; // set "swapped to disk" bit to 0
 
         // // puts index into the 12-47 bits of page table entry
         // *page_table_entry = (*page_table_entry & ~(PHYS_ADDR_MASK)) | (last_swp_idx << 12);
@@ -83,7 +85,7 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         __sync_add_and_fetch(&user_pgfault, 1);
     }
     else{
-        kprintf("page fault handler: fault_addr: %p \n", fault_addr);
+        kprintf("fault_addr: %p, present %d, write %d, user %d \n", fault_addr, present, write, user);
         panic("Kernel error in page fault handler \n");
     }
 
@@ -100,23 +102,26 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
 
     struct proc* cur_process = proc_current();
     pte_t* page_table_entry = find_pte(cur_process->as.vpmap->pml4, fault_addr, 0);
+    // check if the "swapped to disk" and "present" bit is set. 
+    // If the "swapped to disk" bit is set and the "present" bit is not set, then we know that it's been swapped to disk.
+    if ((*page_table_entry & PTE_DISK) == PTE_DISK && !((*page_table_entry & 1) == 1)){
+        kprintf("inside \n");
+        spinlock_acquire(&swp_lock);
+        paddr_t new_page_addr;
 
-    // // check if the "swapped to disk" and "present" bit is set. If they're both 0, then we know that it's been swapped to disk.
-    // if (!((*page_table_entry & PTE_DISK) == PTE_DISK) && !((*page_table_entry & 1) == 1)){
-    //     paddr_t new_page_addr;
+        // get a physical page to write data back into
+        pmem_alloc_or_evict(&new_page_addr);
 
-    //     // get a physical page to write data back into
-    //     pmem_alloc_or_evict(&new_page_addr);
-
-    //     // get index by masking to get phys address and right shifting 
-    //     offset_t index = (*page_table_entry & PHYS_ADDR_MASK) >> 12;
-    //     ssize_t result;
-    //     offset_t ofs = index * pg_size;
-    //     if ((result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, &ofs)) == -1){
-    //         panic("NO DATA READ");
-    //     }
-    //     return;
-    // }
+        // get index by masking to get phys address and right shifting 
+        offset_t index = (*page_table_entry & PHYS_ADDR_MASK) >> 12;
+        ssize_t result;
+        offset_t ofs = index * pg_size;
+        if ((result = fs_read_file(swpfile, (void *) new_page_addr, pg_size, &ofs)) == -1){
+            panic("NO DATA READ");
+        }
+        spinlock_release(&swp_lock);
+        return;
+    }
 
     // if there is a page protection issue
     if (present){
@@ -128,7 +133,9 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
                 
                 // allocate physical page
                 paddr_t new_page_addr;
+                spinlock_acquire(&swp_lock);
                 pmem_alloc_or_evict(&new_page_addr);
+                spinlock_release(&swp_lock);
             
                 //copy original to newly created page
                 memcpy((void*)KMAP_P2V(new_page_addr), (void*)pg_round_down(fault_addr), pg_size);
@@ -154,11 +161,15 @@ handle_page_fault(vaddr_t fault_addr, int present, int write, int user) {
         // allocate physical page
         paddr_t new_page_addr;
         pmem_alloc_or_evict(&new_page_addr);
-        // kprintf("page fault handler: new_page_addr: %p \n", new_page_addr);
+
+        kprintf("\n");
+        kprintf("page fault handler: new_page_addr: %p \n", new_page_addr);
+        kprintf("page fault handler: kmap_p2v(new_page_addr): %p \n", kmap_p2v(new_page_addr)); 
 
         // memset page to 0s
+        kprintf("before memset\n");
         memset((void*) kmap_p2v(new_page_addr), 0, pg_size);
-
+        kprintf("after memset\n");
         //add new page to pagetable
         err_t vpmap_status;
         if ((vpmap_status = vpmap_map(as->vpmap, fault_addr, new_page_addr, 1, region->perm) == ERR_VPMAP_MAP)){
