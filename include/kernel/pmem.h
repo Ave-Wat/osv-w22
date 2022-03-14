@@ -29,6 +29,7 @@ struct page {
     state_t state;
     // used by bdev to locate block headers
     List blk_headers;
+    struct proc *process;
 };
 
 /*
