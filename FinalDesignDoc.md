@@ -55,6 +55,7 @@ Implement swap space in order to create the illusion of a greater amount of memo
 * What would the fault_addr of page not in mem be? Are we thinking about that case correctly?
 ### Staging of Work
 1. Create swap space
-2. Implement memory full case in page fault handler
-3. Edit page fault handler
+2. Implement memory full case in page fault handler (eviction)
+3. Implement recall to memory in page fault handler
 4. Write tests
+5. Debug and meet test requirements
