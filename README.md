@@ -1,6 +1,6 @@
 # Final Project Readme
 ## The features from your proposal that you successfully implemented
-We attempted to complete a swap space feature in order to give the illusion of a larger memory space.
+We attempted to create a swap space feature in order to give the illusion of a larger memory space.
 
 ## Any non-functional features you attempted to implement
 Creation of a swap space
