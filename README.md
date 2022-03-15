@@ -1,9 +1,10 @@
 # The features from your proposal that you successfully implemented
-Create swap space
-Write pages from memory into swap space if memory is full
-Bring pages from swap space into memory when an access to that page is made.
+We attempted to complete a swap space feature in order to give the illusion of a larger memory space.
 
 # Any non-functional features you attempted to implement
+Creation of a swap space
+    Writing pages into the swap space if memory is full
+    Reading pages from swap space into memory when an access to that page is made.
 
 # The files you added or modified, and how they relate to the features above
 Files modified: 
@@ -43,8 +44,23 @@ swp-large:
 swp-concurrency:
     This test checks whether our implementation can successfully handle multiple processes swapping a small number of pages to the swap space and then retrieving those pages.
 
+swp-stack
+    This test checks whether our implementation successfully writes and retrieves pages to the stack.
+    Note: this test ... [insert behavior]
+
 # Any features or edge cases the test cases do not address
+Full File:
+    The tests and code don't address what happens when the swp_file reaches maximum file size.
+
+Page permissions preservation:
+    No test for ensuring the file permissions are peserved during swaps.
+    Example: parent alloc's pages. The child does something to cause pages to be swapped out. The child then goes to write, can it still write?
+
 
 # Any known bugs
+The code panics prior to completion.
+- put in tons of detail, line numbers, etc
+
+
 
 # Anything interesting you would like to share
