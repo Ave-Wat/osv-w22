@@ -64,7 +64,7 @@ Implementation uses FIFO for page eviction.
 * Because our implementation uses first in first out to decide which page to swap, thrashing can occur. FIFO is not as efficient of an algorithm as LFU or LRU at deciding which page to evict.
 
 ## Differences in implementation from Project Proposal
-Unfortunately, we were not able to meet our minimum viable goals of eviction and accessing evicted pages.
+Unfortunately, we were not able to meet our minimum viable goals of eviction and accessing evicted pages. We also did not make progress on stretch goals.
 
 ## Anything interesting you would like to share
 We found it highly useful to create a design document to outline our thought process and ease implementation. We have included the design doc in the top level of our project.
