@@ -5,6 +5,7 @@
         "pmem.h": "c",
         "bdev.h": "c",
         "vpmap.h": "c",
-        "test.h": "c"
+        "test.h": "c",
+        "swp-stack": "c"
     }
 }

@@ -4,7 +4,7 @@
 int
 main()
 {
-    int n;
+    int n, status;
     int nproc = 5;
     int pid;
 
@@ -30,7 +30,12 @@ main()
                     error("reading pages caused error: unexpected page value");
                 }
             }
+            exit(0);
         }
+    }
+
+    for (; n > 0; n--) {
+        wait(-1, &status);
     }
 
     pass("swp-concurrency");
