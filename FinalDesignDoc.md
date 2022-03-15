@@ -5,7 +5,7 @@
 * https://www.baeldung.com/cs/virtual-memory-vs-swap-space 
 * https://pages.cs.wisc.edu/~remzi/OSTEP/vm-beyondphys.pdf 
 * https://www.geeksforgeeks.org/swap-space-in-operating-system/ 
-* ​​https://www.linux.com/news/all-about-linux-swap-space/ 
+* https://www.linux.com/news/all-about-linux-swap-space/ 
 ## Overview
 Implement swap space in order to create the illusion of a greater amount of memory.
 ## Major Parts
@@ -24,8 +24,6 @@ Implement swap space in order to create the illusion of a greater amount of memo
       * Use the built-in List
          * There’s a node struct within the page struct associated with every page
          * Can use the page_to_paddr() function to retrieve physical address
-
-
 * Write that page to the swpfile using fs_write_file(); put page in buf; size is sizeof page
 * Change the pagetable entry for moved page to be idx of location in swpfile
    * As the pagetable entry is a 64 bits, use bitwise operations to repurpose physical page addr to be position in file
