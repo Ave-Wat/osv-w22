@@ -8,6 +8,7 @@ Creation of a swap space
 
 # The files you added or modified, and how they relate to the features above
 Files modified: 
+
     - `fs.h`:
         This is where we declare a pointer to our swap space(swpfile) and last_swp_index, which stores the next available spot within our swap space that can be written to.
 
