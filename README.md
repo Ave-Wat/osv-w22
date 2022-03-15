@@ -1,20 +1,27 @@
 # Final Project Readme
-## The features from your proposal that you successfully implemented
 We attempted to create a swap space feature in order to give the illusion of a larger memory space.
 
-## Any non-functional features you attempted to implement
+## The features from your proposal that you successfully implemented
 Creation of a swap space
-    Writing pages into the swap space if memory is full
-    Reading pages from swap space into memory when an access to that page is made.
+
+## Any non-functional features you attempted to implement
+Writing pages into the swap space if memory is full
+Reading pages from swap space into memory when an access to that page is made.
 
 ## The files you added or modified, and how they relate to the features above
 Files modified: 
 * `fs.h`:
     * This is where we declare a pointer to our swap space(swpfile) and last_swp_index, which stores the next available spot within our swap space that can be written to.
+
 * `main.c`:
     * This is where we initialized our swap space by using fs_open_file(). This is also where we initialized last_swp_index.
+
 * `mmu.h`: 
     * We added a macro for our bitwise operations. PTE_DISK is used to toggle the 52nd bit in order to indicate whether a page is on disk or not. 
+
+*  `pmem.h`: 
+    * We added a process pointer to the page struct's fields so that we can keep track of the process that "owns" this page. This is so that we can modify the appropriate page table.
+
 * `pgfault.c`: 
     * This is where the bulk of our work occurred. 
     * In the page fault handler, we initialize our list of allocated pages and our lock for swap operations(if it hasn't already occurred). We modified the page fault handler to append to our linked list of allocated pages everytime a page is allocated so that we can evict if necessary. 
@@ -44,24 +51,20 @@ swp-concurrency:
 
 swp-stack
 * This test checks whether our implementation successfully writes and retrieves pages to the stack.
-* Behavior: this test exits with status -1 due to [insert here]
+* Behavior: this test exits with status -1
 
 ## Any features or edge cases the test cases do not address
 Full File:
 * The tests and code don't address what happens when the swp_file reaches maximum file size.
 
 Page permissions preservation:
-* No test for ensuring the file permissions are peserved during swaps.
+* No test for ensuring the file permissions are preserved during swaps.
 * Example: parent alloc's pages. The child does something to cause pages to be swapped out. The child then goes to write, can it still write?
-
 
 ## Any known bugs
 The code breaks with a "PANIC: Kernel error in page fault handler" on line 156 in `pgfault.c`. This can be demonstrated by running swp-small. 
-* Once the memory fills up, the program tries to evict a page to the swap space and allocate a new page in memory. However, our page table entries are incorrect, causing the retrieval of the new page's address to fault. 
-* The page table entries are incorrect because we haven't figured out how to manipulate the page table to include another entry when the page is being handed off to the same process. Both of the pages, the evicted page and the new page, are possibly still pointing to the same page table address.
 
-Implementation uses FIFO for page eviction.
-* Because our implementation uses first in first out to decide which page to swap, thrashing can occur. FIFO is not as efficient of an algorithm as LFU or LRU at deciding which page to evict.
+* Once the memory fills up, the program evicts a page to the swap space and hands off ownership to the process that wants it. However, there is an issue with our page table entries, causing a fault when we try to use the address of the evicted page. The page table entries are incorrect because currently our implementation assumes that another process was the owner of the evicted page; we haven't added functionality for creating another page table entry when the evicted page is being handed off to the same process that owned it previously. 
 
 ## Differences in implementation from Project Proposal
 Unfortunately, we were not able to meet our minimum viable goals of eviction and accessing evicted pages. We also did not make progress on stretch goals.
